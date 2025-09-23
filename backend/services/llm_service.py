@@ -12,7 +12,7 @@ class LLMService:
     def __init__(self):
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
-            self.model = genai.GenerativeModel('gemini-pro')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             print("Warning: GEMINI_API_KEY not found. LLM features will be limited.")
             self.model = None

@@ -8,7 +8,7 @@ let priceChart = null;
 let ratingsChart = null;
 
 // API base URL
-const API_BASE = '/api/v1';
+const API_BASE = 'http://localhost:8000/api/v1';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {

@@ -1,12 +1,15 @@
 """Configuration settings for the Laptop Intelligence Engine."""
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Database
-DATABASE_URL = "sqlite:///data/laptop_intelligence.db"
+# Database - Use absolute path to ensure it works regardless of working directory
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+DATABASE_PATH = PROJECT_ROOT / "data" / "laptop_intelligence.db"
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 # Google Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
