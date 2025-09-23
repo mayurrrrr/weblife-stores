@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laptop Intelligence Engine</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-laptop"></i> Laptop Intelligence Engine
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="#explore" data-tab="explore">Explore</a>
+                <a class="nav-link" href="#compare" data-tab="compare">Compare</a>
+                <a class="nav-link" href="#trends" data-tab="trends">Price Trends</a>
+                <a class="nav-link" href="#reviews" data-tab="reviews">Reviews</a>
+                <a class="nav-link" href="#chat" data-tab="chat">AI Assistant</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar Filters -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-filter"></i> Filters</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="brandFilter" class="form-label">Brand</label>
+                            <select class="form-select" id="brandFilter">
+                                <option value="">All Brands</option>
+                                <option value="lenovo">Lenovo</option>
+                                <option value="hp">HP</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="minPrice" class="form-label">Min Price ($)</label>
+                            <input type="number" class="form-control" id="minPrice" placeholder="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="maxPrice" class="form-label">Max Price ($)</label>
+                            <input type="number" class="form-control" id="maxPrice" placeholder="2000">
+                        </div>
+                        <div class="mb-3">
+                            <label for="searchTerm" class="form-label">Search</label>
+                            <input type="text" class="form-control" id="searchTerm" placeholder="Search laptops...">
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="availableOnly" checked>
+                                <label class="form-check-label" for="availableOnly">
+                                    Available only
+                                </label>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="applyFilters()">
+                            <i class="fas fa-search"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Recommendations -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-magic"></i> Quick Recommendations</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="quickRecommend('business')">
+                            Business Use
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="quickRecommend('student')">
+                            Student Budget
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="quickRecommend('gaming')">
+                            Gaming/Performance
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="quickRecommend('ultrabook')">
+                            Ultrabook/Portable
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <!-- Tab Content -->
+                
+                <!-- Explore Tab -->
+                <div id="explore-tab" class="tab-content active">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="fas fa-search"></i> Explore Laptops</h3>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="viewMode" id="gridView" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary" for="gridView">
+                                <i class="fas fa-th"></i> Grid
+                            </label>
+                            <input type="radio" class="btn-check" name="viewMode" id="listView" autocomplete="off">
+                            <label class="btn btn-outline-secondary" for="listView">
+                                <i class="fas fa-list"></i> List
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="loading" class="text-center" style="display: none;">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <div id="laptops-container" class="row">
+                        <!-- Laptops will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Compare Tab -->
+                <div id="compare-tab" class="tab-content">
+                    <h3><i class="fas fa-balance-scale"></i> Compare Laptops</h3>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Select laptops from the Explore tab to compare them here.
+                    </div>
+                    <div id="comparison-container">
+                        <!-- Comparison will be shown here -->
+                    </div>
+                </div>
+
+                <!-- Price Trends Tab -->
+                <div id="trends-tab" class="tab-content">
+                    <h3><i class="fas fa-chart-line"></i> Price Trends</h3>
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="priceChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reviews Tab -->
+                <div id="reviews-tab" class="tab-content">
+                    <h3><i class="fas fa-star"></i> Reviews Intelligence</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">Rating Distribution</div>
+                                <div class="card-body">
+                                    <canvas id="ratingsChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">Recent Reviews</div>
+                                <div class="card-body" id="recent-reviews">
+                                    <!-- Reviews will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat/AI Assistant Tab -->
+                <div id="chat-tab" class="tab-content">
+                    <h3><i class="fas fa-robot"></i> AI Assistant</h3>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card chat-card">
+                                <div class="card-header">
+                                    <i class="fas fa-comments"></i> Chat with AI Assistant
+                                </div>
+                                <div class="card-body">
+                                    <div id="chat-messages" class="chat-messages">
+                                        <div class="message assistant-message">
+                                            <div class="message-content">
+                                                <i class="fas fa-robot"></i>
+                                                Hi! I'm your laptop shopping assistant. I can help you find the perfect laptop, compare specifications, check current prices, and answer any questions you have. What would you like to know?
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="chat-input-container">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="chat-input" placeholder="Ask me anything about laptops..." onkeypress="handleChatKeyPress(event)">
+                                            <button class="btn btn-primary" onclick="sendMessage()">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <i class="fas fa-lightbulb"></i> Quick Recommendations
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="budget-range" class="form-label">Budget Range</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="budget-min" placeholder="Min $">
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="budget-max" placeholder="Max $">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="use-case" class="form-label">Use Case</label>
+                                        <select class="form-select" id="use-case">
+                                            <option value="">Select use case</option>
+                                            <option value="business">Business/Office</option>
+                                            <option value="student">Student/Education</option>
+                                            <option value="gaming">Gaming</option>
+                                            <option value="creative">Creative/Design</option>
+                                            <option value="general">General Use</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="preferred-brand" class="form-label">Preferred Brand</label>
+                                        <select class="form-select" id="preferred-brand">
+                                            <option value="">Any Brand</option>
+                                            <option value="lenovo">Lenovo</option>
+                                            <option value="hp">HP</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn btn-success w-100" onclick="getRecommendations()">
+                                        <i class="fas fa-magic"></i> Get Recommendations
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Laptop Detail Modal -->
+    <div class="modal fade" id="laptopModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="laptopModalTitle">Laptop Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="laptopModalBody">
+                    <!-- Laptop details will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="addToCompareBtn">Add to Compare</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
