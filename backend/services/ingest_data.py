@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, Laptop, Offer, Review, QnA, create_tables
 from services.pdf_parser import PDFParser
-from services.scraper import LaptopScraper
+from services import unified_scraper  # use unified scraper instead of old scraper
 from app.config import PDF_MAPPINGS
 
 class DataIngestion:
@@ -70,14 +70,26 @@ class DataIngestion:
                 continue
             
             for offer_data in offers:
+                price_val = offer_data.get("price")
+                if price_val is None:
+                    price_val = 0.0  # avoid NOT NULL violation
+                currency_val = offer_data.get("currency") or "USD"
+                shipping_eta_val = offer_data.get("shipping_eta") or offer_data.get("availability_text") or ""
+                promotions_val = offer_data.get("promotions", []) or []
+                ts_raw = offer_data.get("timestamp", datetime.utcnow().isoformat())
+                try:
+                    ts_val = datetime.fromisoformat(ts_raw)
+                except Exception:
+                    ts_val = datetime.utcnow()
+
                 offer = Offer(
                     laptop_id=laptop_id,
-                    price=offer_data.get("price", 0.0),
-                    currency=offer_data.get("currency", "USD"),
+                    price=float(price_val),
+                    currency=currency_val,
                     is_available=offer_data.get("is_available", True),
-                    shipping_eta=offer_data.get("availability_text", ""),
-                    promotions=json.dumps(offer_data.get("promotions", [])),
-                    timestamp=datetime.fromisoformat(offer_data.get("timestamp", datetime.utcnow().isoformat()))
+                    shipping_eta=shipping_eta_val,
+                    promotions=json.dumps(promotions_val),
+                    timestamp=ts_val,
                 )
                 self.db.add(offer)
                 total_offers += 1
@@ -100,7 +112,7 @@ class DataIngestion:
                 review = Review(
                     laptop_id=laptop_id,
                     rating=review_data.get("rating", 0.0) or 0.0,
-                    review_text=review_data.get("review_text", ""),
+                    review_text=review_data.get("review_text", "") or review_data.get("body", ""),
                     author=review_data.get("author", "Anonymous"),
                     timestamp=datetime.fromisoformat(review_data.get("timestamp", datetime.utcnow().isoformat()))
                 )
@@ -163,7 +175,6 @@ class DataIngestion:
             self.ingest_laptop_specs(specs_data)
         else:
             print("No PDF specifications found. Creating placeholder laptops...")
-            # Create placeholder laptops if no PDFs are available
             placeholder_specs = {
                 "lenovo_e14_intel": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
                 "lenovo_e14_amd": {"specifications": {"cpu": ["AMD processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
@@ -172,38 +183,41 @@ class DataIngestion:
             }
             self.ingest_laptop_specs(placeholder_specs)
         
-        # Step 2: Scrape live data
-        print("\n=== Step 2: Scraping live data ===")
-        scraper = LaptopScraper()
+        # Step 2: Scrape live data using unified scraper
+        print("\n=== Step 2: Scraping live data (unified) ===")
         try:
-            live_data = await scraper.scrape_all_urls()
-            scraper.save_results(live_data)
+            await unified_scraper.main()
             
-            # Ingest scraped data
+            # Ingest scraped data from generated files
             print("\n=== Step 3: Ingesting scraped data ===")
-            for model_key, data in live_data.items():
-                offers_data = {model_key: data.get("offers", [])}
-                reviews_data = {model_key: data.get("reviews", [])}
-                qna_data = {model_key: data.get("qna", [])}
-                
+            offers_data = self.load_json_file("live_offers.json")
+            reviews_data = self.load_json_file("live_reviews.json")
+            qna_data = self.load_json_file("live_qna.json")
+            
+            if offers_data:
                 self.ingest_offers(offers_data)
+            if reviews_data:
                 self.ingest_reviews(reviews_data)
+            if qna_data:
                 self.ingest_qna(qna_data)
         
         except Exception as e:
-            print(f"Error during scraping: {e}")
+            print(f"Error during unified scraping: {e}")
             print("Attempting to load existing scraped data...")
+            self.db.rollback()
             
-            # Try to load existing scraped data
             offers_data = self.load_json_file("live_offers.json")
             reviews_data = self.load_json_file("live_reviews.json")
             qna_data = self.load_json_file("live_qna.json")
             
             if offers_data or reviews_data or qna_data:
                 print("\n=== Step 3: Ingesting existing scraped data ===")
-                self.ingest_offers(offers_data)
-                self.ingest_reviews(reviews_data)
-                self.ingest_qna(qna_data)
+                if offers_data:
+                    self.ingest_offers(offers_data)
+                if reviews_data:
+                    self.ingest_reviews(reviews_data)
+                if qna_data:
+                    self.ingest_qna(qna_data)
             else:
                 print("No existing scraped data found. Creating sample data...")
                 self.create_sample_data()
@@ -219,7 +233,6 @@ class DataIngestion:
         sample_reviews = {}
         
         for model_key, laptop_id in self.laptop_mapping.items():
-            # Sample offers
             sample_offers[model_key] = [{
                 "price": 899.99 if "lenovo" in model_key else 799.99,
                 "currency": "USD",
@@ -228,19 +241,11 @@ class DataIngestion:
                 "promotions": ["10% Student Discount"],
                 "timestamp": datetime.utcnow().isoformat()
             }]
-            
-            # Sample reviews
             sample_reviews[model_key] = [
                 {
                     "rating": 4.5,
                     "review_text": "Great laptop for business use. Fast performance and good build quality.",
                     "author": "Business User",
-                    "timestamp": datetime.utcnow().isoformat()
-                },
-                {
-                    "rating": 4.0,
-                    "review_text": "Solid performance, decent battery life. Good value for money.",
-                    "author": "Tech Reviewer",
                     "timestamp": datetime.utcnow().isoformat()
                 }
             ]
@@ -263,7 +268,6 @@ class DataIngestion:
         print(f"Total records: {laptop_count + offer_count + review_count + qna_count}")
 
 async def main():
-    """Main function to run data ingestion."""
     ingestion = DataIngestion()
     await ingestion.run_full_ingestion(clear_existing=True)
 
