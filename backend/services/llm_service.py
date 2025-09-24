@@ -12,7 +12,7 @@ class LLMService:
     def __init__(self):
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
-            self.model = genai.GenerativeModel('gemini-pro')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             print("Warning: GEMINI_API_KEY not found. LLM features will be limited.")
             self.model = None
@@ -115,8 +115,8 @@ User: {user_message}"""
             conversation_history.append({"role": "assistant", "content": ai_response})
             self.conversations[conversation_id] = conversation_history
             
-            # Extract sources (simplified)
-            sources = ["Live product data", "Official specifications"]
+            # Extract sources based on actual data used
+            sources = self._extract_sources_from_context(context, user_message)
             
             return ai_response, sources, conversation_id
             
@@ -190,6 +190,45 @@ Provide a clear rationale explaining why these laptops are good matches for the 
         
         return laptop_ids, rationale, sources
     
+    def _extract_sources_from_context(self, context: str, user_message: str) -> List[str]:
+        """Extract meaningful sources based on the context and question."""
+        sources = []
+        
+        # Check what data types are in the context
+        if "Price: $" in context and context.count("Price: $") > 0:
+            sources.append("Live pricing data")
+        
+        if "Rating:" in context:
+            sources.append("Customer reviews and ratings")
+        
+        if "Specifications:" in context:
+            sources.append("Official product specifications")
+        
+        # Check for specific laptop brands mentioned
+        brands_mentioned = []
+        if "Lenovo" in context:
+            brands_mentioned.append("Lenovo")
+        if "HP" in context:
+            brands_mentioned.append("HP")
+        
+        if brands_mentioned:
+            sources.append(f"{', '.join(brands_mentioned)} product pages")
+        
+        # Check if question is about comparisons
+        comparison_words = ["compare", "vs", "versus", "better", "best", "cheapest", "most expensive"]
+        if any(word in user_message.lower() for word in comparison_words):
+            sources.append("Comparative analysis")
+        
+        # Check if question is about availability
+        if "available" in user_message.lower() or "in stock" in user_message.lower():
+            sources.append("Real-time inventory data")
+        
+        # Fallback if no specific sources identified
+        if not sources:
+            sources = ["Product database", "Live market data"]
+        
+        return sources[:4]  # Limit to 4 sources max
+
     def fallback_response(self, user_message: str) -> str:
         """Provide a fallback response when LLM is not available."""
         user_lower = user_message.lower()

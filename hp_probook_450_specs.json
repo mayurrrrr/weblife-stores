@@ -1,56 +1,48 @@
 {
   "model_key": "hp_probook_450",
-  "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\hp-probook-450.pdf",
+  "source_pdf": "C:\\Users\\Mayur Arvindh\\Desktop\\weblife-stores\\data\\pdfs\\hp-probook-450.pdf",
   "specifications": {
     "cpu": [
-      "and long battery life, this feature-rich pc is well-",
-      ", nvidia rtx2050",
-      "configure your hp probook 450\u2019s cpu for the perfect combination of power, snappy performance, and value. the latest intel\u00ae processor handles"
+      "Intel\u00ae Pentium",
+      "AMD Ryzen",
+      "i7-1355U",
+      "i5-1335U",
+      "i3-1340P"
     ],
     "ram": [
-      ". easily upgrade with an easy-open cover featuring self-capturing",
-      "to meet the growing demands of your business.",
-      "32 gb ddr4-3200 mhz ram; (transfer rates up to 3200 mt/s.);"
+      "32 GB DDR4",
+      "32 GB DDR4-3200"
     ],
     "storage": [
-      "as needed.",
-      "up to 1 tb pcie\u00ae nvme\u2122 m.2 ssd tlc",
-      "drives, gb = 1 billion bytes. tb = 1 trillion bytes. actual formatted capacity is less. up to 30 gb (for windows 10 and 11) is reserved for system recovery software."
-    ],
-    "display": [
-      "s and other peripherals.",
-      "size (diagonal, metric)",
-      "39.6 cm (15.6\") diagonal, fhd (1920 x 1080), narrow bezel, anti-glare, 250 nits, 45% ntsc; 39.6 cm (15.6\") diagonal, fhd (1920 x 1080), touch, narrow"
+      "1 TB PCIe",
+      "512 GB PCIe"
     ],
     "graphics": [
-      ", and long battery",
-      "performance",
-      ". enable fast execution for your computing,"
-    ],
-    "battery": [
-      "life, this feature-rich pc is well-",
-      "life. easily upgrade memory and",
-      "type"
+      "NVIDIA RTX2050",
+      "NVIDIA\u00ae GeForce RTX",
+      "Intel\u00ae UHD Graphics",
+      "Intel\u00ae Iris",
+      "NVIDIA\u00ae GeForce"
     ],
     "ports": [
-      ". simply connect with usb-c\u00ae cables from your laptop to your",
-      "dual channel memory.",
-      "and connectors"
+      "HDMI",
+      "DisplayPort",
+      "Ethernet"
     ],
     "dimensions": [
-      "35.94 x 23.39 x 1.99 cm;",
-      "(diagonal, metric)",
-      ", optional backlit keyboard with numeric keypad ; clickpad with multi-touch gesture support"
+      "35.94 x 23.39 x 1.99 cm",
+      "6.9 x 48.3 x 30.5 cm"
     ],
     "weight": [
-      "starting at 1.79 kg;",
-      "will vary by configuration. does not include power adapter.)",
-      "1.79 kg"
+      "1.79 kg",
+      "Starting at 1.79 kg"
     ],
     "operating_system": [
-      "s to avoid loss of your data.",
-      "on products configured with intel and amd 7th generation and forward processors or provide any windows 8 or windows 7 drivers on",
-      "t of your it investment."
+      "Windows 11 Pro",
+      "Windows 11",
+      "Windows 11 Home",
+      "Windows 11 Enterprise",
+      "Windows 10 Enterprise"
     ]
   },
   "text_length": 26959

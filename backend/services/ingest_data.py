@@ -183,22 +183,27 @@ class DataIngestion:
             }
             self.ingest_laptop_specs(placeholder_specs)
         
-        # Step 2: Scrape live data using unified scraper
-        print("\n=== Step 2: Scraping live data (unified) ===")
+        # Step 2: Load existing data (offers from scraper, reviews/QnA from dummy data)
+        print("\n=== Step 2: Scraping live offers data only ===")
         try:
+            # Only scrape offers (working scraper), preserve dummy reviews/QnA
             await unified_scraper.main()
+            print("✅ Offers scraping completed")
             
-            # Ingest scraped data from generated files
-            print("\n=== Step 3: Ingesting scraped data ===")
+            # Ingest data from files
+            print("\n=== Step 3: Ingesting data ===")
             offers_data = self.load_json_file("live_offers.json")
             reviews_data = self.load_json_file("live_reviews.json")
             qna_data = self.load_json_file("live_qna.json")
             
             if offers_data:
+                print("📊 Ingesting scraped offers data...")
                 self.ingest_offers(offers_data)
             if reviews_data:
+                print("📝 Ingesting dummy reviews data...")
                 self.ingest_reviews(reviews_data)
             if qna_data:
+                print("❓ Ingesting dummy Q&A data...")
                 self.ingest_qna(qna_data)
         
         except Exception as e:

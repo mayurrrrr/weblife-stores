@@ -13,7 +13,7 @@ from pathlib import Path
 static_dir = Path(__file__).parent / "static"
 os.chdir(static_dir)
 
-PORT = 3000
+PORT = 3001
 
 class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):

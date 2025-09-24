@@ -13,13 +13,13 @@ HP_PROBOOK_450_REVIEWS = "https://www.hp.com/us-en/shop/reviews/hp-probook-450-1
 TARGETS = {
     "lenovo_e14_intel": {
         "pdp": LENOVO_E14_INTEL_URL,
-        "reviews": [],
-        "qna": []
+        "reviews": [LENOVO_E14_INTEL_URL + "#reviews"],
+        "qna": [LENOVO_E14_INTEL_URL + "#reviews"]
     },
     "lenovo_e14_amd": {
         "pdp": LENOVO_E14_AMD_URL,
-        "reviews": [],
-        "qna": []
+        "reviews": [LENOVO_E14_AMD_URL + "#reviews"],
+        "qna": [LENOVO_E14_AMD_URL + "#reviews"]
     },
     "hp_probook_440": {
         "pdp": HP_PROBOOK_440_PDP,

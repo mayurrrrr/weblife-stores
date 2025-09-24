@@ -1,56 +1,47 @@
 {
   "model_key": "hp_probook_440",
-  "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\hp-probook-440.pdf",
+  "source_pdf": "C:\\Users\\Mayur Arvindh\\Desktop\\weblife-stores\\data\\pdfs\\hp-probook-440.pdf",
   "specifications": {
     "cpu": [
-      "and long battery life, this feature-rich pc is well-equipped for",
-      "configure your hp probook 440\u2019s cpu for the perfect combination of power, snappy performance, and value. the latest intel\u00ae processor  handles",
-      "family"
+      "AMD Ryzen"
     ],
     "ram": [
-      "32 gb ddr5-5600 mt/s ram; (transfer rates up to 5600 mt/s.)",
-      "slots",
-      "card device"
+      "32 GB DDR5",
+      "32 GB DDR5-5600"
     ],
     "storage": [
-      "and memory.",
-      "512 gb up to 1 tb pcie\u00ae gen4x4 nvme\u2122 m.2 ssd",
-      "drives, gb = 1 billion bytes. tb = 1 trillion bytes. actual formatted capacity is less. up to 30gb of disk is reserved for system recovery software."
-    ],
-    "display": [
-      ", get a large-screen experience",
-      ". featuring a 16:10 aspect ratio, allowing you to see more",
-      "s and other peripherals."
+      "1 TB PCIe",
+      "256 GB PCIe"
     ],
     "graphics": [
-      "and meet challenging business",
-      "performance",
-      ".  enable fast execution for your computing,"
-    ],
-    "battery": [
-      "life, this feature-rich pc is well-equipped for",
-      "life. unlock ai-powered",
-      "type"
+      "NVIDIA\u00ae GeForce RTX",
+      "NVIDIA\u00ae GeForce",
+      "discrete graphics",
+      "Integrated graphics"
     ],
     "ports": [
-      ". simply connect with usb-c\u00ae cables  from your laptop to",
-      "and connectors",
-      "are not disabled. see user guide for cleaning instructions."
+      "HDMI",
+      "DisplayPort"
     ],
     "dimensions": [
-      "12.54 x 8.83 x 0.43 in (front); 12.54 x 8.83 x 0.67 in (rear); 31.86 x 22.44 x 1.09 cm (front); 31.86 x 22.43 x 1.7 cm (rear); (front height",
-      "(diagonal,",
-      "12.54 x 8.83 x 0.43"
+      "12.54 x 8.83 x 0.43 in",
+      "12.54 x 8.83 x 0.67 in",
+      "31.86 x 22.44 x 1.09 cm",
+      "31.86 x 22.43 x 1.7 cm",
+      "2.71 x 17.67 x 12 in"
     ],
     "weight": [
-      "starting at 3.08 lb; starting at 1.39 kg;",
-      "will vary by configuration. does not include power adapter.)",
-      "1.39 kg"
+      "3.08 lb",
+      "1.39 kg",
+      "Starting at 3.08 lb",
+      "Starting at 1.39 kg"
     ],
     "operating_system": [
-      "t of your",
-      "t-industrial recycled stamped aluminum in the chassis and 100",
-      "to the browser, above, in, and below the"
+      "Windows 11 Pro",
+      "Windows 11",
+      "Windows 11 Home",
+      "Windows 11 Enterprise",
+      "Windows 10 Enterprise"
     ]
   },
   "text_length": 26455

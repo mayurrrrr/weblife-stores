@@ -8,7 +8,7 @@ let priceChart = null;
 let ratingsChart = null;
 
 // API base URL
-const API_BASE = '/api/v1';
+const API_BASE = 'http://localhost:8000/api/v1';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -42,6 +42,8 @@ function setupTabNavigation() {
 }
 
 function switchTab(tabId) {
+    console.log('[DEBUG] Switching to tab:', tabId);
+    
     // Update nav links
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
@@ -52,23 +54,53 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
-    document.getElementById(`${tabId}-tab`).classList.add('active');
+    
+    const targetTab = document.getElementById(`${tabId}-tab`);
+    console.log('[DEBUG] Target tab element:', targetTab);
+    
+    if (targetTab) {
+        targetTab.classList.add('active');
+        console.log('[DEBUG] Tab activated successfully');
+    } else {
+        console.error('[DEBUG] Tab element not found:', `${tabId}-tab`);
+    }
     
     // Load tab-specific data
+    console.log('[DEBUG] Loading tab data for:', tabId);
     loadTabData(tabId);
 }
 
 function loadTabData(tabId) {
+    console.log('[DEBUG] loadTabData called with tabId:', tabId);
+    
     switch(tabId) {
         case 'trends':
+            console.log('[DEBUG] Loading trends data');
             loadPriceTrends();
             break;
         case 'reviews':
-            loadReviewsData();
+            console.log('[DEBUG] Loading reviews data');
+            // Ensure ratings chart is initialized before loading data
+            if (!ratingsChart) {
+                console.log('[DEBUG] Ratings chart not found, reinitializing...');
+                initializeRatingsChart();
+            }
+            // Small delay to ensure tab is visible before loading data
+            setTimeout(() => {
+                console.log('[DEBUG] Calling loadReviewsData after timeout');
+                loadReviewsData();
+                // Trigger chart resize to ensure proper rendering
+                if (ratingsChart) {
+                    ratingsChart.resize();
+                }
+            }, 100);
             break;
         case 'compare':
+            console.log('[DEBUG] Loading comparison data');
             updateComparisonView();
             break;
+        default:
+            console.log('[DEBUG] Unknown tab:', tabId);
     }
 }
 
@@ -112,25 +144,34 @@ async function apiCall(endpoint, options = {}) {
 
 // Laptop Functions
 async function loadLaptops() {
+    console.log('[DEBUG] Loading laptops from API...');
     showLoading(true);
     
     try {
         const data = await apiCall('/laptops');
+        console.log('[DEBUG] API response:', data);
         if (data) {
             laptops = data;
+            console.log('[DEBUG] Loaded', laptops.length, 'laptops');
             displayLaptops(laptops);
+        } else {
+            console.log('[DEBUG] No data received from API');
+            showError('No laptop data received from server');
         }
     } catch (error) {
-        showError('Failed to load laptops');
+        console.error('[DEBUG] Error loading laptops:', error);
+        showError('Failed to load laptops: ' + error.message);
     } finally {
         showLoading(false);
     }
 }
 
 function displayLaptops(laptopsData, viewMode = 'grid') {
+    console.log('[DEBUG] Displaying laptops:', laptopsData?.length, 'items, view mode:', viewMode);
     const container = document.getElementById('laptops-container');
     
     if (!laptopsData || laptopsData.length === 0) {
+        console.log('[DEBUG] No laptops to display');
         container.innerHTML = `
             <div class="col-12">
                 <div class="alert alert-info text-center">
@@ -418,10 +459,16 @@ function handleChatKeyPress(event) {
 }
 
 async function sendMessage() {
+    console.log('[DEBUG] sendMessage called');
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     
-    if (!message) return;
+    if (!message) {
+        console.log('[DEBUG] Empty message, returning');
+        return;
+    }
+    
+    console.log('[DEBUG] Sending message:', message);
     
     // Add user message to chat
     addMessageToChat(message, 'user');
@@ -431,6 +478,7 @@ async function sendMessage() {
     addTypingIndicator();
     
     try {
+        console.log('[DEBUG] Making API call to /chat');
         const response = await apiCall('/chat', {
             method: 'POST',
             body: JSON.stringify({
@@ -439,27 +487,43 @@ async function sendMessage() {
             })
         });
         
+        console.log('[DEBUG] Chat API response:', response);
+        
         if (response) {
             conversationId = response.conversation_id;
             removeTypingIndicator();
-            addMessageToChat(response.response, 'assistant');
+            addMessageToChat(response.response, 'assistant', response.sources);
         }
     } catch (error) {
+        console.error('[DEBUG] Chat error:', error);
         removeTypingIndicator();
-        addMessageToChat('Sorry, I encountered an error. Please try again.', 'assistant');
+        addMessageToChat('Sorry, I encountered an error. Please try again. Error: ' + error.message, 'assistant');
     }
 }
 
-function addMessageToChat(message, sender) {
+function addMessageToChat(message, sender, sources = null) {
     const chatMessages = document.getElementById('chat-messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}-message`;
     
     const icon = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
     
+    // Create sources HTML if sources are provided
+    let sourcesHtml = '';
+    if (sources && sources.length > 0) {
+        sourcesHtml = `
+            <div class="message-sources mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i> <strong>Sources:</strong> ${sources.join(', ')}
+                </small>
+            </div>
+        `;
+    }
+    
     messageDiv.innerHTML = `
         <div class="message-content">
             ${icon} ${message}
+            ${sourcesHtml}
         </div>
     `;
     
@@ -583,14 +647,30 @@ function initializePriceChart() {
 }
 
 function initializeRatingsChart() {
-    const ctx = document.getElementById('ratingsChart').getContext('2d');
+    console.log('[DEBUG] Initializing ratings chart...');
+    
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('[DEBUG] Chart.js library not loaded!');
+        return;
+    }
+    
+    const canvas = document.getElementById('ratingsChart');
+    
+    if (!canvas) {
+        console.error('[DEBUG] ratingsChart canvas element not found!');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    console.log('[DEBUG] Canvas context obtained, creating chart...');
     
     ratingsChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
             datasets: [{
-                data: [45, 30, 15, 7, 3],
+                data: [0, 0, 0, 0, 0], // Will be populated by loadReviewsData()
                 backgroundColor: [
                     '#198754',
                     '#20c997',
@@ -613,6 +693,8 @@ function initializeRatingsChart() {
             }
         }
     });
+    
+    console.log('[DEBUG] Ratings chart initialized successfully');
 }
 
 async function loadPriceTrends() {
@@ -625,48 +707,124 @@ async function loadPriceTrends() {
 }
 
 async function loadReviewsData() {
-    // Load recent reviews
-    const reviewsContainer = document.getElementById('recent-reviews');
+    console.log('[DEBUG] Loading reviews data from API...');
     
-    // Sample reviews data
-    const sampleReviews = [
-        {
-            rating: 5,
-            author: 'John D.',
-            date: '2024-01-15',
-            text: 'Excellent laptop for business use. Fast, reliable, and great build quality.'
-        },
-        {
-            rating: 4,
-            author: 'Sarah M.',
-            date: '2024-01-10',
-            text: 'Good performance and battery life. The display could be brighter.'
-        },
-        {
-            rating: 5,
-            author: 'Mike R.',
-            date: '2024-01-08',
-            text: 'Perfect for development work. Handles multiple applications smoothly.'
+    try {
+        // Load all laptops to get their reviews
+        const laptopsData = await apiCall('/laptops');
+        if (!laptopsData || laptopsData.length === 0) {
+            console.log('[DEBUG] No laptops found for reviews');
+            return;
         }
-    ];
-    
-    reviewsContainer.innerHTML = sampleReviews.map(review => `
-        <div class="review-item">
-            <div class="review-header">
-                <div>
-                    <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span>
-                    <span class="review-author">${review.author}</span>
+        
+        // Collect all reviews from all laptops
+        let allReviews = [];
+        let ratingCounts = [0, 0, 0, 0, 0]; // 1-star, 2-star, 3-star, 4-star, 5-star
+        
+        for (const laptop of laptopsData) {
+            try {
+                console.log(`[DEBUG] Loading reviews for laptop ${laptop.id}: ${laptop.brand} ${laptop.model_name}`);
+                const reviews = await apiCall(`/laptops/${laptop.id}/reviews`);
+                console.log(`[DEBUG] Received ${reviews ? reviews.length : 0} reviews for laptop ${laptop.id}`);
+                
+                if (reviews && reviews.length > 0) {
+                    // Add laptop info to each review
+                    const reviewsWithLaptop = reviews.map(review => ({
+                        ...review,
+                        laptop_brand: laptop.brand,
+                        laptop_model: laptop.model_name
+                    }));
+                    allReviews = allReviews.concat(reviewsWithLaptop);
+                    
+                    // Count ratings for chart
+                    reviews.forEach(review => {
+                        if (review.rating && review.rating >= 1 && review.rating <= 5) {
+                            ratingCounts[Math.floor(review.rating) - 1]++;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error(`[DEBUG] Error loading reviews for laptop ${laptop.id}:`, error);
+            }
+        }
+        
+        console.log('[DEBUG] Loaded', allReviews.length, 'total reviews');
+        
+        // Sort by date (newest first) and take recent ones
+        allReviews.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
+        const recentReviews = allReviews.slice(0, 10); // Show last 10 reviews
+        
+        // Display reviews
+        const reviewsContainer = document.getElementById('recent-reviews');
+        
+        if (recentReviews.length === 0) {
+            reviewsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No reviews available yet.
                 </div>
-                <span class="review-date">${new Date(review.date).toLocaleDateString()}</span>
+            `;
+            
+            // Show sample chart data when no reviews exist
+            if (ratingsChart) {
+                console.log('[DEBUG] No reviews found, showing sample chart data');
+                ratingsChart.data.datasets[0].data = [2, 1, 1, 0, 0]; // Sample: 2 five-star, 1 four-star, 1 three-star
+                ratingsChart.update();
+            }
+        } else {
+            reviewsContainer.innerHTML = recentReviews.map(review => {
+                const rating = review.rating || 0;
+                const author = review.author || 'Anonymous';
+                const date = review.timestamp || review.date;
+                const text = review.review_text || review.body || 'No review text';
+                const laptopInfo = review.laptop_brand && review.laptop_model ? 
+                    `${review.laptop_brand} ${review.laptop_model}` : 'Unknown Laptop';
+                
+                // Format date
+                let formattedDate = 'Unknown date';
+                if (date) {
+                    try {
+                        formattedDate = new Date(date).toLocaleDateString();
+                    } catch (e) {
+                        formattedDate = date.toString().substring(0, 10);
+                    }
+                }
+                
+                return `
+                    <div class="review-item">
+                        <div class="review-header">
+                            <div>
+                                <span class="review-rating">${'★'.repeat(Math.floor(rating))}${'☆'.repeat(5-Math.floor(rating))}</span>
+                                <span class="review-author">${author}</span>
+                            </div>
+                            <span class="review-date">${formattedDate}</span>
+                        </div>
+                        <div class="review-laptop"><small class="text-muted">${laptopInfo}</small></div>
+                        <div class="review-text">${text}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update ratings chart with real data
+        if (ratingsChart) {
+            // Reverse array because chart expects [5-star, 4-star, 3-star, 2-star, 1-star]
+            const chartData = ratingCounts.reverse();
+            console.log('[DEBUG] Updating chart with rating counts:', ratingCounts, 'reversed to:', chartData);
+            ratingsChart.data.datasets[0].data = chartData;
+            ratingsChart.update();
+            console.log('[DEBUG] Updated ratings chart with data:', chartData);
+        } else {
+            console.error('[DEBUG] ratingsChart is null - chart not initialized!');
+        }
+        
+    } catch (error) {
+        console.error('[DEBUG] Error loading reviews data:', error);
+        const reviewsContainer = document.getElementById('recent-reviews');
+        reviewsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error loading reviews: ${error.message}
             </div>
-            <div class="review-text">${review.text}</div>
-        </div>
-    `).join('');
-    
-    // Update ratings chart
-    if (ratingsChart) {
-        ratingsChart.data.datasets[0].data = [45, 30, 15, 7, 3];
-        ratingsChart.update();
+        `;
     }
 }
 

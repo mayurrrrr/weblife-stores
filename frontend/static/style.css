@@ -192,6 +192,22 @@ body {
     margin-right: 0.5rem;
 }
 
+.message-sources {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.message-sources small {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.message-sources i {
+    color: var(--primary-color);
+    margin-right: 0.25rem;
+}
+
 .chat-input-container {
     margin-top: auto;
 }
