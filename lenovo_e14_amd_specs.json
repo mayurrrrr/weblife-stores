@@ -1,0 +1,57 @@
+{
+  "model_key": "lenovo_e14_amd",
+  "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\ThinkPad_E14_Gen_5_AMD_Spec.pdf",
+  "specifications": {
+    "cpu": [
+      "processor family",
+      "processor**",
+      "name"
+    ],
+    "ram": [
+      "max memory[1]",
+      "slots",
+      "soldered to systemboard, one ddr4 so-dimm slot, dual-channel capable"
+    ],
+    "storage": [
+      "max storage support[1]",
+      "slot[2]",
+      "type***[3]"
+    ],
+    "display": [
+      "s (native display and 3 external monitors via hdmi\u00ae and usb-c\u00ae)",
+      "display**[1]",
+      "port\u2122 1.4)"
+    ],
+    "graphics": [
+      "amd ryzen\u2122 3 7330u 4",
+      "amd ryzen\u2122 5 5625u 6",
+      "amd ryzen\u2122 5 7430u 6"
+    ],
+    "battery": [
+      "battery**[1]",
+      ", supports rapid charge (charge up to 80% in 1hr)",
+      "life[2]"
+    ],
+    "ports": [
+      "up to 4 independent displays (native display and 3 external monitors via hdmi\u00ae and usb-c\u00ae)",
+      "up to 4096x2160@30hz",
+      "up to 5120x2160@60hz"
+    ],
+    "dimensions": [
+      "(wxdxh)[1]",
+      "may vary depending on configurations.",
+      "resolution"
+    ],
+    "weight": [
+      "aluminium (top), pc-abs (bottom) models",
+      "is approximate and based on results in lenovo\u00ae lab, which varies depending on the source of",
+      "for each specific model."
+    ],
+    "operating_system": [
+      "operating system**",
+      ", routers/aps/gateways that support wi-",
+      "er to pcie\u00ae 3.0 x4 due to amd platform limitations."
+    ]
+  },
+  "text_length": 14860
+}

@@ -1,0 +1,57 @@
+{
+  "model_key": "lenovo_e14_intel",
+  "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\ThinkPad_E14_Gen_5_Intel_Spec.pdf",
+  "specifications": {
+    "cpu": [
+      "processor family",
+      "processor**",
+      "name"
+    ],
+    "ram": [
+      ". on the system with single-channel memory, intel\u00ae iris\u00ae xe graphics will function as intel\u00ae uhd graphics.",
+      ". on the system with",
+      ", intel\u00ae iris\u00ae xe graphics will function as intel\u00ae uhd graphics."
+    ],
+    "storage": [
+      "max storage support[1]",
+      "slot[2]",
+      "type***"
+    ],
+    "display": [
+      "s (native display and 3 external monitors via hdmi\u00ae, usb-c\u00ae and thunderbolt\u2122)",
+      "display**[1]",
+      "port\u2122 1.4)"
+    ],
+    "graphics": [
+      "core i3-1315u",
+      "core i5-1335u 10 (2 p-core + 8",
+      "core i5-1345u 10 (2 p-core + 8"
+    ],
+    "battery": [
+      "battery**[1]",
+      ", supports rapid charge (charge up to 80% in 1hr)",
+      "life[2]"
+    ],
+    "ports": [
+      "up to 4 independent displays (native display and 3 external monitors via hdmi\u00ae, usb-c\u00ae and thunderbolt\u2122)",
+      "up to 4096x2160@60hz",
+      "up to 5120x2880@60hz"
+    ],
+    "dimensions": [
+      "(wxdxh)[1]",
+      "may vary depending on configurations.",
+      "resolution"
+    ],
+    "weight": [
+      "aluminium (top), pc-abs (bottom) models",
+      "is approximate and based on results in lenovo\u00ae lab, which varies depending on the source of",
+      "for each specific model."
+    ],
+    "operating_system": [
+      "operating system**",
+      ", routers/aps/gateways that support wi-",
+      ", intel\u00ae lan"
+    ]
+  },
+  "text_length": 17805
+}

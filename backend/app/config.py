@@ -5,6 +5,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Resolve project directories (absolute paths)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+PDFS_DIR = os.path.join(DATA_DIR, "pdfs")
+
 # Database
 DATABASE_URL = "sqlite:///data/laptop_intelligence.db"
 
@@ -30,12 +35,12 @@ SCRAPING_URLS = {
     "hp_probook_450": HP_PROBOOK_450_URL,
 }
 
-# PDF file mappings
+# PDF file mappings (absolute paths based on project root)
 PDF_MAPPINGS = {
-    "lenovo_e14_intel": "../../data/pdfs/ThinkPad_E14_Gen_5_Intel_Spec.pdf",
-    "lenovo_e14_amd": "../../data/pdfs/ThinkPad_E14_Gen_5_AMD_Spec.pdf",
-    "hp_probook_440": "../../data/pdfs/hp-probook-440.pdf",
-    "hp_probook_450": "../../data/pdfs/hp-probook-450.pdf",
+    "lenovo_e14_intel": os.path.join(PDFS_DIR, "ThinkPad_E14_Gen_5_Intel_Spec.pdf"),
+    "lenovo_e14_amd": os.path.join(PDFS_DIR, "ThinkPad_E14_Gen_5_AMD_Spec.pdf"),
+    "hp_probook_440": os.path.join(PDFS_DIR, "hp-probook-440.pdf"),
+    "hp_probook_450": os.path.join(PDFS_DIR, "hp-probook-450.pdf"),
 }
 
 # API settings

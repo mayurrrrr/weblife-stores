@@ -106,3 +106,37 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Scraper artifacts
+artifacts/
+artifacts_c4a/
+backend/artifacts/
+Customer Reviews_*.html
+
+# Generated scraping outputs
+live_data.json
+live_offers.json
+live_reviews.json
+live_qna.json
+backend/live_data.json
+backend/live_offers.json
+backend/live_reviews.json
+backend/live_qna.json
+
+# Playwright local browsers/cache
+playwright-browsers/
+
+# Experimental/auxiliary scraper scripts (not for commit)
+# (Uncomment to ignore; currently we want to track these)
+# backend/services/unified_scraper.py
+# backend/services/firecrawl_reviews.py
+# backend/services/hp_reviews_bs.py
+# backend/services/hp_reviews_from_file.py
+# backend/services/targets.py
+
+# Ignore all virtual environments
+venv/
+.venv/
+venv*/
+.env/
+ENV/
