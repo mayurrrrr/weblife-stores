@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 def main():
-    # Get the directory of the frontend server.py
-    frontend_server_path = Path(__file__).parent / "frontend" / "server.py"
+    # Resolve repository root and frontend server path
+    repo_root = Path(__file__).resolve().parents[1]
+    frontend_server_path = repo_root / "frontend" / "server.py"
     
     if not frontend_server_path.exists():
         print(f"❌ Error: Frontend server script not found at {frontend_server_path}")

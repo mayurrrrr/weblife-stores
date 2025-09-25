@@ -1,0 +1,192 @@
+{
+  "lenovo_e14_intel": {
+    "model_key": "lenovo_e14_intel",
+    "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\ThinkPad_E14_Gen_5_Intel_Spec.pdf",
+    "specifications": {
+      "cpu": [
+        "Intel\u00ae i3-1315U",
+        "Intel\u00ae i5-1340P",
+        "Intel\u00ae i7-1355U",
+        "i3-1315U",
+        "i5-1335U"
+      ],
+      "ram": [
+        "8GB DDR4",
+        "16GB DDR4",
+        "40GB DDR4"
+      ],
+      "graphics": [
+        "Intel\u00ae UHD \nGraphics\nCore",
+        "Intel\u00ae Iris",
+        "Intel\u00ae UHD Graphics",
+        "Intel\u00ae UHD Graphics\nIntegrated",
+        "NVIDIA\u00ae GeForce MX"
+      ],
+      "battery": [
+        "57Wh battery"
+      ],
+      "ports": [
+        "1x USB 2.0",
+        "1x USB 3.2",
+        "1x USB-C",
+        "Thunderbolt",
+        "Ethernet"
+      ],
+      "dimensions": [
+        "313 x 219.3 x 17.99 mm",
+        "12.32 x 8.63 x 0.71 inches"
+      ],
+      "weight": [
+        "1.41 kg",
+        "3.11 lbs",
+        "1.43 kg",
+        "3.15 lbs",
+        "Starting at 1.41 kg"
+      ],
+      "operating_system": [
+        "Ubuntu",
+        "Linux"
+      ]
+    },
+    "text_length": 17805
+  },
+  "lenovo_e14_amd": {
+    "model_key": "lenovo_e14_amd",
+    "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\ThinkPad_E14_Gen_5_AMD_Spec.pdf",
+    "specifications": {
+      "cpu": [
+        "AMD Ryzen"
+      ],
+      "ram": [
+        "8GB DDR4",
+        "16GB DDR4"
+      ],
+      "storage": [
+        "128GB SSD"
+      ],
+      "graphics": [
+        "AMD Radeon"
+      ],
+      "battery": [
+        "57Wh battery",
+        "47Wh battery"
+      ],
+      "ports": [
+        "1x USB 3.2",
+        "1x USB-C",
+        "Ethernet",
+        "HDMI",
+        "DisplayPort"
+      ],
+      "dimensions": [
+        "313 x 219.3 x 17.99 mm",
+        "12.32 x 8.63 x 0.71 inches"
+      ],
+      "weight": [
+        "1.41 kg",
+        "3.11 lbs",
+        "1.43 kg",
+        "3.15 lbs",
+        "Starting at 1.41 kg"
+      ]
+    },
+    "text_length": 14860
+  },
+  "hp_probook_440": {
+    "model_key": "hp_probook_440",
+    "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\hp-probook-440.pdf",
+    "specifications": {
+      "cpu": [
+        "AMD Ryzen"
+      ],
+      "ram": [
+        "32 GB DDR5",
+        "32 GB DDR5-5600"
+      ],
+      "storage": [
+        "1 TB PCIe",
+        "256 GB PCIe"
+      ],
+      "graphics": [
+        "NVIDIA\u00ae GeForce RTX",
+        "NVIDIA\u00ae GeForce",
+        "discrete graphics",
+        "Integrated graphics"
+      ],
+      "ports": [
+        "HDMI",
+        "DisplayPort"
+      ],
+      "dimensions": [
+        "12.54 x 8.83 x 0.43 in",
+        "12.54 x 8.83 x 0.67 in",
+        "31.86 x 22.44 x 1.09 cm",
+        "31.86 x 22.43 x 1.7 cm",
+        "2.71 x 17.67 x 12 in"
+      ],
+      "weight": [
+        "3.08 lb",
+        "1.39 kg",
+        "Starting at 3.08 lb",
+        "Starting at 1.39 kg"
+      ],
+      "operating_system": [
+        "Windows 11 Pro",
+        "Windows 11",
+        "Windows 11 Home",
+        "Windows 11 Enterprise",
+        "Windows 10 Enterprise"
+      ]
+    },
+    "text_length": 26455
+  },
+  "hp_probook_450": {
+    "model_key": "hp_probook_450",
+    "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\hp-probook-450.pdf",
+    "specifications": {
+      "cpu": [
+        "Intel\u00ae Pentium",
+        "AMD Ryzen",
+        "i7-1355U",
+        "i5-1335U",
+        "i3-1340P"
+      ],
+      "ram": [
+        "32 GB DDR4",
+        "32 GB DDR4-3200"
+      ],
+      "storage": [
+        "1 TB PCIe",
+        "512 GB PCIe"
+      ],
+      "graphics": [
+        "NVIDIA RTX2050",
+        "NVIDIA\u00ae GeForce RTX",
+        "Intel\u00ae UHD Graphics",
+        "Intel\u00ae Iris",
+        "NVIDIA\u00ae GeForce"
+      ],
+      "ports": [
+        "HDMI",
+        "DisplayPort",
+        "Ethernet"
+      ],
+      "dimensions": [
+        "35.94 x 23.39 x 1.99 cm",
+        "6.9 x 48.3 x 30.5 cm"
+      ],
+      "weight": [
+        "1.79 kg",
+        "Starting at 1.79 kg"
+      ],
+      "operating_system": [
+        "Windows 11 Pro",
+        "Windows 11",
+        "Windows 11 Home",
+        "Windows 11 Enterprise",
+        "Windows 10 Enterprise"
+      ]
+    },
+    "text_length": 26959
+  }
+}

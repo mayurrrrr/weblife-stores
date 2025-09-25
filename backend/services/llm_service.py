@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import Laptop, Offer, Review, QnA
 from app.config import GEMINI_API_KEY
 import uuid
+from pathlib import Path
 
 class LLMService:
     def __init__(self):
@@ -90,7 +91,9 @@ User: {user_message}"""
     def chat(self, db: Session, user_message: str, conversation_id: str = None) -> Tuple[str, List[str], str]:
         """Handle chat requests with context from database."""
         if not self.model:
-            return self.fallback_response(user_message), [], conversation_id or str(uuid.uuid4())
+            # Return fallback with concrete citations if possible
+            citations = self._retrieve_citations(db, user_message)
+            return self.fallback_response(user_message), citations, conversation_id or str(uuid.uuid4())
         
         # Get conversation ID
         if not conversation_id:
@@ -115,14 +118,15 @@ User: {user_message}"""
             conversation_history.append({"role": "assistant", "content": ai_response})
             self.conversations[conversation_id] = conversation_history
             
-            # Extract sources (simplified)
-            sources = ["Live product data", "Official specifications"]
+            # Concrete citations from repo data
+            sources = self._retrieve_citations(db, user_message)
             
             return ai_response, sources, conversation_id
             
         except Exception as e:
             print(f"Error generating chat response: {e}")
-            return f"Sorry, I encountered an error: {str(e)}", [], conversation_id
+            citations = self._retrieve_citations(db, user_message)
+            return f"Sorry, I encountered an error: {str(e)}", citations, conversation_id
     
     def recommend(self, db: Session, budget_min: float = None, budget_max: float = None, 
                   preferred_brand: str = None, use_case: str = None, 
@@ -186,10 +190,84 @@ Provide a clear rationale explaining why these laptops are good matches for the 
         else:
             rationale = f"Here are the laptops that match your criteria."
         
-        sources = ["Live pricing data", "Product specifications", "User reviews"]
+        # Return filename-based sources when available
+        sources: List[str] = []
+        try:
+            specs_path = Path("../data/specs/specs.json").resolve()
+            offers_path = Path("../data/live/live_offers.json").resolve()
+            reviews_path = Path("../data/live/live_reviews.json").resolve()
+            if specs_path.exists():
+                sources.append(specs_path.name)
+            if offers_path.exists():
+                sources.append(offers_path.name)
+            if reviews_path.exists():
+                sources.append(reviews_path.name)
+        except Exception:
+            pass
+        if not sources:
+            sources = ["specs.json", "live_offers.json", "live_reviews.json"]
         
         return laptop_ids, rationale, sources
     
+    def _extract_sources_from_context(self, context: str, user_message: str) -> List[str]:
+        """Extract meaningful sources based on the context and question."""
+        sources = []
+        
+        # Check what data types are in the context
+        if "Price: $" in context and context.count("Price: $") > 0:
+            sources.append("Live pricing data")
+        
+        if "Rating:" in context:
+            sources.append("Customer reviews and ratings")
+        
+        if "Specifications:" in context:
+            sources.append("Official product specifications")
+        
+        # Check for specific laptop brands mentioned
+        brands_mentioned = []
+        if "Lenovo" in context:
+            brands_mentioned.append("Lenovo")
+        if "HP" in context:
+            brands_mentioned.append("HP")
+        
+        if brands_mentioned:
+            sources.append(f"{', '.join(brands_mentioned)} product pages")
+        
+        # Check if question is about comparisons
+        comparison_words = ["compare", "vs", "versus", "better", "best", "cheapest", "most expensive"]
+        if any(word in user_message.lower() for word in comparison_words):
+            sources.append("Comparative analysis")
+        
+        # Check if question is about availability
+        if "available" in user_message.lower() or "in stock" in user_message.lower():
+            sources.append("Real-time inventory data")
+        
+        # Append filenames if present on disk
+        try:
+            specs_path = Path("../data/specs/specs.json").resolve()
+            offers_path = Path("../data/live/live_offers.json").resolve()
+            reviews_path = Path("../data/live/live_reviews.json").resolve()
+            if specs_path.exists():
+                sources.append(specs_path.name)
+            if offers_path.exists():
+                sources.append(offers_path.name)
+            if reviews_path.exists():
+                sources.append(reviews_path.name)
+        except Exception:
+            pass
+        
+        # Fallback if no specific sources identified
+        if not sources:
+            sources = ["specs.json", "live_offers.json", "live_reviews.json"]
+        
+        # Limit
+        # Deduplicate while preserving order
+        deduped = []
+        for s in sources:
+            if s not in deduped:
+                deduped.append(s)
+        return deduped[:6]
+
     def fallback_response(self, user_message: str) -> str:
         """Provide a fallback response when LLM is not available."""
         user_lower = user_message.lower()
@@ -208,3 +286,75 @@ Provide a clear rationale explaining why these laptops are good matches for the 
         
         else:
             return "I'm here to help with laptop shopping! I can compare models, provide recommendations, check current prices, and explain specifications. What would you like to know?"
+
+    def _retrieve_citations(self, db: Session, user_message: str) -> List[str]:
+        """Gather concrete citations from specs (PDF), offers (source_url), and recent reviews."""
+        citations: List[str] = []
+        # Build model_key mapping like ingestion
+        model_map = {
+            ("Lenovo", "ThinkPad E14 Gen 5 (Intel)"): "lenovo_e14_intel",
+            ("Lenovo", "ThinkPad E14 Gen 5 (AMD)"): "lenovo_e14_amd",
+            ("HP", "ProBook 440 G11"): "hp_probook_440",
+            ("HP", "ProBook 450 G10"): "hp_probook_450",
+        }
+        # Load specs artifacts
+        try:
+            specs_path = Path("../data/specs/specs.json").resolve()
+            if specs_path.exists():
+                specs = json.loads(specs_path.read_text(encoding="utf-8"))
+            else:
+                specs = {}
+        except Exception:
+            specs = {}
+        # Load live offers for source_url/seller
+        try:
+            offers_path = Path("../data/live/live_offers.json").resolve()
+            offers = json.loads(offers_path.read_text(encoding="utf-8")) if offers_path.exists() else {}
+        except Exception:
+            offers = {}
+        # Load live reviews for filename source
+        reviews_path = Path("../data/live/live_reviews.json").resolve()
+        # Include per-laptop citations
+        laptops = db.query(Laptop).all()
+        for laptop in laptops:
+            mk = model_map.get((laptop.brand, laptop.model_name))
+            # Specs PDF
+            if mk and mk in specs:
+                spec_item = specs[mk]
+                src_pdf = spec_item.get("source_pdf")
+                if src_pdf:
+                    citations.append(f"Specs PDF ({laptop.brand} {laptop.model_name}): {src_pdf}")
+            # Offer source_url
+            if mk and mk in offers and isinstance(offers[mk], list) and offers[mk]:
+                src_url = offers[mk][0].get("source_url")
+                seller = offers[mk][0].get("seller")
+                if src_url:
+                    label = f"{seller} product page" if seller else "Product page"
+                    citations.append(f"{label} ({laptop.brand} {laptop.model_name}): {src_url}")
+            # One recent review quote
+            latest_review = db.query(Review).filter(Review.laptop_id == laptop.id).order_by(Review.timestamp.desc()).first()
+            if latest_review and latest_review.review_text:
+                snippet = latest_review.review_text.strip()
+                if len(snippet) > 120:
+                    snippet = snippet[:120].rstrip() + "…"
+                citations.append(f"User review ({laptop.brand} {laptop.model_name}): \"{snippet}\"")
+            # Stop if we have enough
+            if len(citations) >= 6:
+                break
+        # Always include data file names if available
+        file_names: List[str] = []
+        if specs_path.exists():
+            file_names.append(specs_path.name)
+        if offers_path.exists():
+            file_names.append(offers_path.name)
+        if reviews_path.exists():
+            file_names.append(reviews_path.name)
+        # Append unique filenames at the end
+        for fn in file_names:
+            if fn not in citations:
+                citations.append(fn)
+        # If nothing found, fallback to filenames
+        if not citations:
+            citations = file_names or ["specs.json", "live_offers.json", "live_reviews.json"]
+        # Trim
+        return citations[:6]

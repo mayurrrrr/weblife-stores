@@ -16,10 +16,10 @@ A full-stack application that scrapes live data from Lenovo and HP official stor
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Web Scraper   │    │   PDF Parser     │    │   Database      │
-│   (Playwright)  │───▶│   (PyMuPDF)      │───▶│   (SQLite)      │
+│   (Playwright)  │───▶│   (PyMuPDF)      │───▶│   (SQLite)     │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                                         │
-┌─────────────────┐    ┌──────────────────┐           │
+┌─────────────────┐    ┌──────────────────┐             │
 │   Frontend      │    │   FastAPI        │◀──────────┘
 │   (HTML/JS)     │◀───│   Backend        │
 └─────────────────┘    └──────────────────┘
@@ -63,7 +63,7 @@ A full-stack application that scrapes live data from Lenovo and HP official stor
 
 5. **Run the application**
    ```bash
-   python scripts/run.py
+   python scripts/run_backend.py
    ```
 
 6. **Open your browser**
@@ -276,7 +276,7 @@ weblife-stores/
 │   │   └── hp-probook-450.pdf
 │   └── laptop_intelligence.db # SQLite database (created automatically)
 ├── scripts/             # Utility scripts
-│   └── run.py          # Application startup script
+│   └── run_backend.py   # Application startup script
 └── docs/               # Documentation
     └── prd.md          # Product Requirements Document
 ```
@@ -295,7 +295,7 @@ weblife-stores/
    }
    ```
 3. **Update scraper**: Add brand-specific scraping logic in `backend/services/scraper.py`
-4. **Re-run ingestion**: `python scripts/run.py`
+4. **Re-run ingestion**: `python scripts/run_backend.py`
 
 ### Extending the API
 
@@ -336,7 +336,7 @@ playwright install chromium
 # Reset database
 rm data/laptop_intelligence.db
 cd backend && python -c "from app.database import create_tables; create_tables()"
-python scripts/run.py
+python scripts/run_backend.py
 ```
 
 ### Debug Mode

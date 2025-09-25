@@ -192,6 +192,22 @@ body {
     margin-right: 0.5rem;
 }
 
+.message-sources {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.message-sources small {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.message-sources i {
+    color: var(--primary-color);
+    margin-right: 0.25rem;
+}
+
 .chat-input-container {
     margin-top: auto;
 }
@@ -357,4 +373,22 @@ body {
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
     background: var(--primary-color);
+}
+
+/* Reviews panel: fixed height with vertical scroll */
+#recent-reviews {
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+/* Optional: better spacing for individual review items if present */
+#recent-reviews .review-item {
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid rgba(0,0,0,0.075);
+	margin-bottom: 0.75rem;
+}
+#recent-reviews .review-item:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+	padding-bottom: 0;
 }

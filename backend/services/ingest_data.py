@@ -7,13 +7,22 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, Laptop, Offer, Review, QnA, create_tables
 from services.pdf_parser import PDFParser
-from services.scraper import LaptopScraper
-from app.config import PDF_MAPPINGS
+from services import unified_scraper  # use unified scraper instead of old scraper
+# PDF_MAPPINGS moved to targets.py
 
 class DataIngestion:
     def __init__(self):
         self.db = SessionLocal()
         self.laptop_mapping = {}  # Maps model_key to laptop_id
+        # Resolve important base directories relative to this file to avoid CWD issues
+        self._here = Path(__file__).resolve()
+        # backend/services -> backend
+        self._backend_dir = self._here.parent.parent
+        # project root (one up from backend)
+        self._project_root = self._backend_dir.parent
+        self._data_dir = self._project_root / "data"
+        self._live_dir = self._data_dir / "live"
+        self._specs_dir = self._data_dir / "specs"
     
     def __del__(self):
         if hasattr(self, 'db'):
@@ -70,14 +79,27 @@ class DataIngestion:
                 continue
             
             for offer_data in offers:
+                price_val = offer_data.get("price")
+                if price_val is None:
+                    price_val = 0.0  # avoid NOT NULL violation
+                currency_val = offer_data.get("currency") or "USD"
+                shipping_eta_val = offer_data.get("shipping_eta") or offer_data.get("availability_text") or ""
+                promotions_val = offer_data.get("promotions", []) or []
+                ts_raw = offer_data.get("timestamp", datetime.utcnow().isoformat())
+                try:
+                    ts_val = datetime.fromisoformat(ts_raw)
+                except Exception:
+                    ts_val = datetime.utcnow()
+
                 offer = Offer(
                     laptop_id=laptop_id,
-                    price=offer_data.get("price", 0.0),
-                    currency=offer_data.get("currency", "USD"),
+                    price=float(price_val),
+                    currency=currency_val,
                     is_available=offer_data.get("is_available", True),
-                    shipping_eta=offer_data.get("availability_text", ""),
-                    promotions=json.dumps(offer_data.get("promotions", [])),
-                    timestamp=datetime.fromisoformat(offer_data.get("timestamp", datetime.utcnow().isoformat()))
+                    shipping_eta=shipping_eta_val,
+                    promotions=json.dumps(promotions_val),
+                    timestamp=ts_val,
+                    seller=offer_data.get("seller")
                 )
                 self.db.add(offer)
                 total_offers += 1
@@ -100,7 +122,7 @@ class DataIngestion:
                 review = Review(
                     laptop_id=laptop_id,
                     rating=review_data.get("rating", 0.0) or 0.0,
-                    review_text=review_data.get("review_text", ""),
+                    review_text=review_data.get("review_text", "") or review_data.get("body", ""),
                     author=review_data.get("author", "Anonymous"),
                     timestamp=datetime.fromisoformat(review_data.get("timestamp", datetime.utcnow().isoformat()))
                 )
@@ -134,16 +156,99 @@ class DataIngestion:
         self.db.commit()
         print(f"Ingested {total_qna} Q&A items.")
     
+    def _validate_reviews_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] Reviews file schema invalid: root is not an object")
+            return False
+        required_keys = {"lenovo_e14_intel", "lenovo_e14_amd", "hp_probook_440", "hp_probook_450"}
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[WARN] Reviews file missing expected keys: {missing}")
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] Reviews[{key}] is not a list")
+                return False
+            for idx, r in enumerate(items):
+                if not isinstance(r, dict):
+                    print(f"[ERROR] Reviews[{key}][{idx}] is not an object")
+                    return False
+                if "rating" not in r or "timestamp" not in r:
+                    print(f"[ERROR] Reviews[{key}][{idx}] missing required fields (rating/timestamp)")
+                    return False
+        return True
+
+    def _validate_offers_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] Offers file schema invalid: root is not an object")
+            return False
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] Offers[{key}] is not a list")
+                return False
+        return True
+
+    def _validate_qna_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] QnA file schema invalid: root is not an object")
+            return False
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] QnA[{key}] is not a list")
+                return False
+        return True
+
     def load_json_file(self, filename: str) -> dict:
-        """Load data from a JSON file."""
-        file_path = Path(filename)
-        if file_path.exists():
-            with open(file_path, 'r') as f:
-                return json.load(f)
+        """Load data from a JSON file with robust path resolution."""
+        # Candidates to try
+        candidates = []
+        p = Path(filename)
+        if p.is_absolute():
+            candidates.append(p)
         else:
-            print(f"File not found: {filename}")
-            return {}
-    
+            # As passed (relative to CWD)
+            candidates.append(p)
+            # Relative to this file (services)
+            candidates.append(self._here.parent / filename)
+            # Relative to backend dir
+            candidates.append(self._backend_dir / filename)
+            # Relative to project root
+            candidates.append(self._project_root / filename)
+            # If path is like ../data/live/x.json, also try explicit live dir
+            try:
+                if p.name:
+                    candidates.append(self._live_dir / p.name)
+            except Exception:
+                pass
+        for cand in candidates:
+            try:
+                if cand.exists():
+                    with open(cand, 'r', encoding='utf-8') as f:
+                        print(f"[INFO] Loading JSON: {cand}")
+                        return json.load(f)
+            except json.JSONDecodeError as je:
+                print(f"[ERROR] Malformed JSON in {cand}: {je}")
+                raise
+            except Exception as e:
+                print(f"[WARN] Failed reading {cand}: {e}")
+        print(f"[ERROR] File not found via any candidate for: {filename}")
+        return {}
+
+    def _post_ingestion_sanity(self):
+        try:
+            laptop_count = self.db.query(Laptop).count()
+            offer_count = self.db.query(Offer).count()
+            review_count = self.db.query(Review).count()
+            qna_count = self.db.query(QnA).count()
+            print(f"[SANITY] Counts -> Laptops={laptop_count}, Offers={offer_count}, Reviews={review_count}, Q&A={qna_count}")
+            if laptop_count < 4:
+                print("[WARN] Expected at least 4 laptops; got less. Check specs ingestion.")
+            if review_count == 0:
+                print("[WARN] No reviews ingested. Verify live_reviews.json path and schema.")
+            if offer_count == 0:
+                print("[WARN] No offers ingested. Verify offers scraping or live_offers.json.")
+        except Exception as e:
+            print(f"[ERROR] Sanity check failed: {e}")
+
     async def run_full_ingestion(self, clear_existing: bool = True):
         """Run the complete data ingestion process."""
         print("Starting full data ingestion process...")
@@ -159,57 +264,108 @@ class DataIngestion:
         pdf_parser = PDFParser()
         specs_data = pdf_parser.parse_all_pdfs()
         
+        # Persist specs JSONs under data/specs for artifacts
+        try:
+            specs_dir = self._specs_dir
+            specs_dir.mkdir(parents=True, exist_ok=True)
+            # Combined file
+            (specs_dir / "specs.json").write_text(json.dumps(specs_data, indent=2), encoding="utf-8")
+            # Per-model files
+            for model_key, spec in (specs_data or {}).items():
+                (specs_dir / f"{model_key}.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
+            # Relocate any stray root-level spec files
+            try:
+                project_root = self._project_root
+                for stray in project_root.glob("*_specs.json"):
+                    target = specs_dir / stray.name
+                    try:
+                        stray.replace(target)
+                        print(f"Moved {stray.name} -> {target}")
+                    except Exception as move_err:
+                        print(f"Warning: could not move {stray}: {move_err}")
+            except Exception as scan_err:
+                print(f"Warning: failed scanning for stray specs: {self}")
+            print(f"Saved specs artifacts to {specs_dir}")
+        except Exception as e:
+            print(f"Warning: failed to save specs artifacts: {e}")
+        
         if specs_data:
             self.ingest_laptop_specs(specs_data)
         else:
             print("No PDF specifications found. Creating placeholder laptops...")
-            # Create placeholder laptops if no PDFs are available
             placeholder_specs = {
                 "lenovo_e14_intel": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
                 "lenovo_e14_amd": {"specifications": {"cpu": ["AMD processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
                 "hp_probook_440": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
                 "hp_probook_450": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["512GB SSD"]}},
             }
+            # Also save placeholder specs to artifacts for consistency
+            try:
+                specs_dir = self._specs_dir
+                specs_dir.mkdir(parents=True, exist_ok=True)
+                (specs_dir / "specs.json").write_text(json.dumps(placeholder_specs, indent=2), encoding="utf-8")
+                for model_key, spec in placeholder_specs.items():
+                    (specs_dir / f"{model_key}.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
+                print(f"Saved placeholder specs artifacts to {specs_dir}")
+            except Exception as e:
+                print(f"Warning: failed to save placeholder specs artifacts: {e}")
             self.ingest_laptop_specs(placeholder_specs)
         
-        # Step 2: Scrape live data
-        print("\n=== Step 2: Scraping live data ===")
-        scraper = LaptopScraper()
+        # Step 2: Load existing data (offers from scraper, reviews/QnA from dummy data)
+        print("\n=== Step 2: Scraping live offers data only ===")
         try:
-            live_data = await scraper.scrape_all_urls()
-            scraper.save_results(live_data)
+            # Only scrape offers (working scraper), preserve dummy reviews/QnA
+            await unified_scraper.main()
+            print("✅ Offers scraping completed")
             
-            # Ingest scraped data
-            print("\n=== Step 3: Ingesting scraped data ===")
-            for model_key, data in live_data.items():
-                offers_data = {model_key: data.get("offers", [])}
-                reviews_data = {model_key: data.get("reviews", [])}
-                qna_data = {model_key: data.get("qna", [])}
-                
+            # Ingest data from files
+            print("\n=== Step 3: Ingesting data ===")
+            offers_data = self.load_json_file("../data/live/live_offers.json")
+            reviews_data = self.load_json_file("../data/live/live_reviews.json")
+            qna_data = self.load_json_file("../data/live/live_qna.json")
+
+            # Validate before ingesting
+            if offers_data and not self._validate_offers_schema(offers_data):
+                raise ValueError("Offers JSON schema invalid. Aborting ingestion.")
+            if reviews_data and not self._validate_reviews_schema(reviews_data):
+                raise ValueError("Reviews JSON schema invalid. Aborting ingestion.")
+            if qna_data and not self._validate_qna_schema(qna_data):
+                raise ValueError("Q&A JSON schema invalid. Aborting ingestion.")
+            
+            if offers_data:
+                print("📊 Ingesting scraped offers data...")
                 self.ingest_offers(offers_data)
+            if reviews_data:
+                print("📝 Ingesting dummy reviews data...")
                 self.ingest_reviews(reviews_data)
+            if qna_data:
+                print("❓ Ingesting dummy Q&A data...")
                 self.ingest_qna(qna_data)
         
         except Exception as e:
-            print(f"Error during scraping: {e}")
+            print(f"Error during unified scraping or file ingestion: {e}")
             print("Attempting to load existing scraped data...")
+            self.db.rollback()
             
-            # Try to load existing scraped data
-            offers_data = self.load_json_file("live_offers.json")
-            reviews_data = self.load_json_file("live_reviews.json")
-            qna_data = self.load_json_file("live_qna.json")
+            offers_data = self.load_json_file("../data/live/live_offers.json")
+            reviews_data = self.load_json_file("../data/live/live_reviews.json")
+            qna_data = self.load_json_file("../data/live/live_qna.json")
             
             if offers_data or reviews_data or qna_data:
                 print("\n=== Step 3: Ingesting existing scraped data ===")
-                self.ingest_offers(offers_data)
-                self.ingest_reviews(reviews_data)
-                self.ingest_qna(qna_data)
+                if offers_data and self._validate_offers_schema(offers_data):
+                    self.ingest_offers(offers_data)
+                if reviews_data and self._validate_reviews_schema(reviews_data):
+                    self.ingest_reviews(reviews_data)
+                if qna_data and self._validate_qna_schema(qna_data):
+                    self.ingest_qna(qna_data)
             else:
                 print("No existing scraped data found. Creating sample data...")
                 self.create_sample_data()
         
         print("\n=== Data ingestion completed! ===")
         self.print_summary()
+        self._post_ingestion_sanity()
     
     def create_sample_data(self):
         """Create sample data for demonstration purposes."""
@@ -219,7 +375,6 @@ class DataIngestion:
         sample_reviews = {}
         
         for model_key, laptop_id in self.laptop_mapping.items():
-            # Sample offers
             sample_offers[model_key] = [{
                 "price": 899.99 if "lenovo" in model_key else 799.99,
                 "currency": "USD",
@@ -228,19 +383,11 @@ class DataIngestion:
                 "promotions": ["10% Student Discount"],
                 "timestamp": datetime.utcnow().isoformat()
             }]
-            
-            # Sample reviews
             sample_reviews[model_key] = [
                 {
                     "rating": 4.5,
                     "review_text": "Great laptop for business use. Fast performance and good build quality.",
                     "author": "Business User",
-                    "timestamp": datetime.utcnow().isoformat()
-                },
-                {
-                    "rating": 4.0,
-                    "review_text": "Solid performance, decent battery life. Good value for money.",
-                    "author": "Tech Reviewer",
                     "timestamp": datetime.utcnow().isoformat()
                 }
             ]
@@ -263,7 +410,6 @@ class DataIngestion:
         print(f"Total records: {laptop_count + offer_count + review_count + qna_count}")
 
 async def main():
-    """Main function to run data ingestion."""
     ingestion = DataIngestion()
     await ingestion.run_full_ingestion(clear_existing=True)
 

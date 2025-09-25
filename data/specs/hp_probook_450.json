@@ -1,0 +1,49 @@
+{
+  "model_key": "hp_probook_450",
+  "source_pdf": "D:\\workspace\\weblife-stores\\data\\pdfs\\hp-probook-450.pdf",
+  "specifications": {
+    "cpu": [
+      "Intel\u00ae Pentium",
+      "AMD Ryzen",
+      "i7-1355U",
+      "i5-1335U",
+      "i3-1340P"
+    ],
+    "ram": [
+      "32 GB DDR4",
+      "32 GB DDR4-3200"
+    ],
+    "storage": [
+      "1 TB PCIe",
+      "512 GB PCIe"
+    ],
+    "graphics": [
+      "NVIDIA RTX2050",
+      "NVIDIA\u00ae GeForce RTX",
+      "Intel\u00ae UHD Graphics",
+      "Intel\u00ae Iris",
+      "NVIDIA\u00ae GeForce"
+    ],
+    "ports": [
+      "HDMI",
+      "DisplayPort",
+      "Ethernet"
+    ],
+    "dimensions": [
+      "35.94 x 23.39 x 1.99 cm",
+      "6.9 x 48.3 x 30.5 cm"
+    ],
+    "weight": [
+      "1.79 kg",
+      "Starting at 1.79 kg"
+    ],
+    "operating_system": [
+      "Windows 11 Pro",
+      "Windows 11",
+      "Windows 11 Home",
+      "Windows 11 Enterprise",
+      "Windows 10 Enterprise"
+    ]
+  },
+  "text_length": 26959
+}
