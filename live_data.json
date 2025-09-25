@@ -1,0 +1,40 @@
+{
+  "lenovo_e14_intel": {
+    "offers": [
+      {
+        "price": 1149.0,
+        "currency": "USD",
+        "is_available": true,
+        "availability_text": "",
+        "promotions": [],
+        "timestamp": "2025-09-23T18:18:32.268019"
+      }
+    ],
+    "reviews": [],
+    "qna": []
+  },
+  "lenovo_e14_amd": {
+    "offers": [],
+    "reviews": [],
+    "qna": []
+  },
+  "hp_probook_440": {
+    "offers": [
+      {
+        "price": 2069.0,
+        "currency": "USD",
+        "is_available": true,
+        "availability_text": "",
+        "promotions": [],
+        "timestamp": "2025-09-23T18:19:57.088743"
+      }
+    ],
+    "reviews": [],
+    "qna": []
+  },
+  "hp_probook_450": {
+    "offers": [],
+    "reviews": [],
+    "qna": []
+  }
+}

@@ -261,5 +261,30 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
+
+    <!-- Fallback script to ensure functions are available -->
+    <script>
+        window.addEventListener('load', function() {
+            console.log('🔍 Page loaded. Checking function availability:');
+            console.log('sendMessage:', typeof window.sendMessage);
+            console.log('handleChatKeyPress:', typeof window.handleChatKeyPress);
+
+            if (typeof window.sendMessage !== 'function') {
+                console.warn('⚠️ sendMessage not found, creating fallback');
+                window.sendMessage = function() {
+                    alert('Chat function is loading. Please wait a moment and try again.');
+                };
+            }
+
+            if (typeof window.handleChatKeyPress !== 'function') {
+                console.warn('⚠️ handleChatKeyPress not found, creating fallback');
+                window.handleChatKeyPress = function(event) {
+                    if (event.key === 'Enter') {
+                        window.sendMessage();
+                    }
+                };
+            }
+        });
+    </script>
 </body>
 </html>
