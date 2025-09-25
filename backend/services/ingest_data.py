@@ -156,6 +156,47 @@ class DataIngestion:
         self.db.commit()
         print(f"Ingested {total_qna} Q&A items.")
     
+    def _validate_reviews_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] Reviews file schema invalid: root is not an object")
+            return False
+        required_keys = {"lenovo_e14_intel", "lenovo_e14_amd", "hp_probook_440", "hp_probook_450"}
+        missing = [k for k in required_keys if k not in data]
+        if missing:
+            print(f"[WARN] Reviews file missing expected keys: {missing}")
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] Reviews[{key}] is not a list")
+                return False
+            for idx, r in enumerate(items):
+                if not isinstance(r, dict):
+                    print(f"[ERROR] Reviews[{key}][{idx}] is not an object")
+                    return False
+                if "rating" not in r or "timestamp" not in r:
+                    print(f"[ERROR] Reviews[{key}][{idx}] missing required fields (rating/timestamp)")
+                    return False
+        return True
+
+    def _validate_offers_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] Offers file schema invalid: root is not an object")
+            return False
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] Offers[{key}] is not a list")
+                return False
+        return True
+
+    def _validate_qna_schema(self, data: dict) -> bool:
+        if not isinstance(data, dict):
+            print("[ERROR] QnA file schema invalid: root is not an object")
+            return False
+        for key, items in data.items():
+            if not isinstance(items, list):
+                print(f"[ERROR] QnA[{key}] is not a list")
+                return False
+        return True
+
     def load_json_file(self, filename: str) -> dict:
         """Load data from a JSON file with robust path resolution."""
         # Candidates to try
@@ -182,12 +223,32 @@ class DataIngestion:
             try:
                 if cand.exists():
                     with open(cand, 'r', encoding='utf-8') as f:
+                        print(f"[INFO] Loading JSON: {cand}")
                         return json.load(f)
+            except json.JSONDecodeError as je:
+                print(f"[ERROR] Malformed JSON in {cand}: {je}")
+                raise
             except Exception as e:
-                print(f"Warning: failed reading {cand}: {e}")
-        print(f"File not found via any candidate for: {filename}")
+                print(f"[WARN] Failed reading {cand}: {e}")
+        print(f"[ERROR] File not found via any candidate for: {filename}")
         return {}
-    
+
+    def _post_ingestion_sanity(self):
+        try:
+            laptop_count = self.db.query(Laptop).count()
+            offer_count = self.db.query(Offer).count()
+            review_count = self.db.query(Review).count()
+            qna_count = self.db.query(QnA).count()
+            print(f"[SANITY] Counts -> Laptops={laptop_count}, Offers={offer_count}, Reviews={review_count}, Q&A={qna_count}")
+            if laptop_count < 4:
+                print("[WARN] Expected at least 4 laptops; got less. Check specs ingestion.")
+            if review_count == 0:
+                print("[WARN] No reviews ingested. Verify live_reviews.json path and schema.")
+            if offer_count == 0:
+                print("[WARN] No offers ingested. Verify offers scraping or live_offers.json.")
+        except Exception as e:
+            print(f"[ERROR] Sanity check failed: {e}")
+
     async def run_full_ingestion(self, clear_existing: bool = True):
         """Run the complete data ingestion process."""
         print("Starting full data ingestion process...")
@@ -262,6 +323,14 @@ class DataIngestion:
             offers_data = self.load_json_file("../data/live/live_offers.json")
             reviews_data = self.load_json_file("../data/live/live_reviews.json")
             qna_data = self.load_json_file("../data/live/live_qna.json")
+
+            # Validate before ingesting
+            if offers_data and not self._validate_offers_schema(offers_data):
+                raise ValueError("Offers JSON schema invalid. Aborting ingestion.")
+            if reviews_data and not self._validate_reviews_schema(reviews_data):
+                raise ValueError("Reviews JSON schema invalid. Aborting ingestion.")
+            if qna_data and not self._validate_qna_schema(qna_data):
+                raise ValueError("Q&A JSON schema invalid. Aborting ingestion.")
             
             if offers_data:
                 print("📊 Ingesting scraped offers data...")
@@ -274,7 +343,7 @@ class DataIngestion:
                 self.ingest_qna(qna_data)
         
         except Exception as e:
-            print(f"Error during unified scraping: {e}")
+            print(f"Error during unified scraping or file ingestion: {e}")
             print("Attempting to load existing scraped data...")
             self.db.rollback()
             
@@ -284,11 +353,11 @@ class DataIngestion:
             
             if offers_data or reviews_data or qna_data:
                 print("\n=== Step 3: Ingesting existing scraped data ===")
-                if offers_data:
+                if offers_data and self._validate_offers_schema(offers_data):
                     self.ingest_offers(offers_data)
-                if reviews_data:
+                if reviews_data and self._validate_reviews_schema(reviews_data):
                     self.ingest_reviews(reviews_data)
-                if qna_data:
+                if qna_data and self._validate_qna_schema(qna_data):
                     self.ingest_qna(qna_data)
             else:
                 print("No existing scraped data found. Creating sample data...")
@@ -296,6 +365,7 @@ class DataIngestion:
         
         print("\n=== Data ingestion completed! ===")
         self.print_summary()
+        self._post_ingestion_sanity()
     
     def create_sample_data(self):
         """Create sample data for demonstration purposes."""
