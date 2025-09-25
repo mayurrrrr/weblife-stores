@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, Any, List
-from app.config import PDF_MAPPINGS
+from services.targets import PDF_MAPPINGS
 
 class PDFParser:
     def __init__(self):

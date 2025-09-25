@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, Laptop, Offer, Review, QnA, create_tables
 from services.pdf_parser import PDFParser
 from services import unified_scraper  # use unified scraper instead of old scraper
-from app.config import PDF_MAPPINGS
+# PDF_MAPPINGS moved to targets.py
 
 class DataIngestion:
     def __init__(self):

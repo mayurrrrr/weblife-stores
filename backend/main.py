@@ -13,7 +13,7 @@ from app.database import get_db, Laptop, Offer, Review, QnA
 from app.api_models import (
     LaptopResponse, LaptopDetailResponse, OfferResponse, ReviewResponse, 
     QnAResponse, ChatRequest, ChatResponse, RecommendationRequest, 
-    RecommendationResponse, APIResponse, LaptopFilter, LaptopSpec, ReviewInsightsResponse
+    RecommendationResponse, LaptopSpec, ReviewInsightsResponse
 )
 from services.llm_service import LLMService
 from app.config import API_PREFIX

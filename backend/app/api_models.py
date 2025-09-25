@@ -79,18 +79,7 @@ class RecommendationResponse(BaseModel):
     rationale: str = Field(..., description="Explanation of recommendations")
     sources: List[str] = Field(default_factory=list, description="Sources used")
 
-class APIResponse(BaseModel):
-    success: bool = True
-    message: str = "Success"
-    data: Optional[Any] = None
-    error: Optional[str] = None
-
-class LaptopFilter(BaseModel):
-    brand: Optional[str] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
-    available_only: bool = True
-    search_term: Optional[str] = None
+# Removed unused APIResponse and LaptopFilter models
 
 class AspectInsight(BaseModel):
     name: str
