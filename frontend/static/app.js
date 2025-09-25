@@ -6,6 +6,8 @@ let selectedLaptops = [];
 let conversationId = null;
 let priceChart = null;
 let ratingsChart = null;
+let isGettingRecommendations = false;
+let isLoadingAllReviews = false;
 
 // API base URL
 const API_BASE = 'http://localhost:8000/api/v1';
@@ -534,28 +536,105 @@ function addMessageToChat(message, sender, sources = null) {
     const chatMessages = document.getElementById('chat-messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}-message`;
-    
+
     const icon = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-    
+
+    // Helper: extract filename from URL/path or plain label
+    function toFileName(src) {
+        if (!src || typeof src !== 'string') return '';
+        try {
+            if (src.startsWith('http://') || src.startsWith('https://')) {
+                const u = new URL(src);
+                const parts = u.pathname.split('/').filter(Boolean);
+                return parts.length ? parts[parts.length - 1] : u.host;
+            }
+        } catch {}
+        const norm = src.replace(/\\/g, '/');
+        const segs = norm.split('/');
+        return segs.length ? segs[segs.length - 1] : src;
+    }
+
+    // Helper: simple formatting for assistant text (paragraphs + bullet/numbered lists + bold)
+    function formatAssistantText(text) {
+        if (!text) return '';
+        const lines = String(text).split(/\r?\n/);
+        const blocks = [];
+        let ulBuffer = [];
+        let olBuffer = [];
+
+        function mdBold(s) {
+            return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        }
+
+        function flushUL() {
+            if (ulBuffer.length) {
+                blocks.push(`<ul class="mb-2">${ulBuffer.map(li => `<li>${mdBold(li)}</li>`).join('')}</ul>`);
+                ulBuffer = [];
+            }
+        }
+        function flushOL() {
+            if (olBuffer.length) {
+                blocks.push(`<ol class="mb-2">${olBuffer.map(li => `<li>${mdBold(li)}</li>`).join('')}</ol>`);
+                olBuffer = [];
+            }
+        }
+        function flushLists() { flushUL(); flushOL(); }
+
+        for (const raw of lines) {
+            const line = raw.trim();
+            if (!line) { flushLists(); continue; }
+            const bullet = line.match(/^[-*]\s+(.*)$/);
+            const numbered = line.match(/^\d+\.\s+(.*)$/);
+
+            if (bullet) {
+                flushOL();
+                ulBuffer.push(bullet[1]);
+                continue;
+            }
+            if (numbered) {
+                flushUL();
+                olBuffer.push(numbered[1]);
+                continue;
+            }
+
+            // Normal paragraph/header line
+            flushLists();
+            // Emphasize header-like lines ending with ':'
+            if (/[^:]:$/.test(line)) {
+                const head = line.replace(/:$/, '');
+                blocks.push(`<p class="mb-2"><strong>${mdBold(head)}</strong></p>`);
+            } else {
+                blocks.push(`<p class="mb-2">${mdBold(line)}</p>`);
+            }
+        }
+        flushLists();
+        return blocks.join('');
+    }
+
     // Create sources HTML if sources are provided
     let sourcesHtml = '';
     if (sources && sources.length > 0) {
+        const files = sources.map(toFileName).filter(Boolean);
+        const unique = Array.from(new Set(files));
         sourcesHtml = `
             <div class="message-sources mt-2">
                 <small class="text-muted">
-                    <i class="fas fa-info-circle"></i> <strong>Sources:</strong> ${sources.join(', ')}
+                    <i class="fas fa-link"></i> <strong>Sources:</strong>
+                    ${unique.length ? `<ul class="mb-0 mt-1">${unique.map(f => `<li>${f}</li>`).join('')}</ul>` : 'None'}
                 </small>
             </div>
         `;
     }
-    
+
+    const bodyHtml = sender === 'assistant' ? formatAssistantText(message) : message;
+
     messageDiv.innerHTML = `
         <div class="message-content">
-            ${icon} ${message}
+            ${icon} ${bodyHtml}
             ${sourcesHtml}
         </div>
     `;
-    
+
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -583,10 +662,30 @@ function removeTypingIndicator() {
 
 // Recommendation Functions
 async function getRecommendations() {
+    // Prevent double submission while a request is in-flight
+    if (isGettingRecommendations) return;
+    isGettingRecommendations = true;
+
     const budgetMin = document.getElementById('budget-min').value;
     const budgetMax = document.getElementById('budget-max').value;
     const useCase = document.getElementById('use-case').value;
     const preferredBrand = document.getElementById('preferred-brand').value;
+
+    // Identify and disable the trigger button to prevent spamming
+    const triggerBtn = document.querySelector('button[onclick="getRecommendations()"]');
+    const originalBtnHtml = triggerBtn ? triggerBtn.innerHTML : '';
+    if (triggerBtn && !triggerBtn.disabled) {
+        triggerBtn.disabled = true;
+        triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sending...';
+    }
+    
+    // Compose a concise summary of the user's selections and display it in chat
+    const summaryParts = [];
+    if (budgetMin || budgetMax) summaryParts.push(`Budget: $${budgetMin || 0} - $${budgetMax || 'unlimited'}`);
+    if (preferredBrand) summaryParts.push(`Brand: ${preferredBrand}`);
+    if (useCase) summaryParts.push(`Use case: ${useCase}`);
+    const selectionSummary = summaryParts.length ? summaryParts.join(', ') : 'No specific constraints provided';
+    addMessageToChat(`You selected → ${selectionSummary}`, 'user');
     
     const requestData = {};
     if (budgetMin) requestData.budget_min = parseFloat(budgetMin);
@@ -605,12 +704,29 @@ async function getRecommendations() {
         }
     } catch (error) {
         showError('Failed to get recommendations');
+    } finally {
+        // Re-enable the trigger button and restore label
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerHTML = originalBtnHtml || 'Get Recommendations';
+        }
+        // Clear inputs after response cycle completes
+        const minEl = document.getElementById('budget-min');
+        const maxEl = document.getElementById('budget-max');
+        const useEl = document.getElementById('use-case');
+        const brandEl = document.getElementById('preferred-brand');
+        if (minEl) minEl.value = '';
+        if (maxEl) maxEl.value = '';
+        if (useEl) useEl.value = '';
+        if (brandEl) brandEl.value = '';
+        isGettingRecommendations = false;
     }
 }
 
 function displayRecommendations(recommendations) {
     const message = `Based on your criteria, here are my recommendations:\n\n${recommendations.rationale}`;
-    addMessageToChat(message, 'assistant');
+    // Pass sources so they render in the chat UI
+    addMessageToChat(message, 'assistant', recommendations.sources);
     
     // Also update the explore tab with recommended laptops
     if (recommendations.recommendations && recommendations.recommendations.length > 0) {
@@ -800,10 +916,13 @@ async function loadSelectedLaptopReviews() {
     const selectedLaptopId = dropdown ? dropdown.value : 'all';
     
     console.log('[DEBUG] Loading reviews for selected laptop:', selectedLaptopId);
+
+    // Ensure laptops list is ready before proceeding
+    await ensureLaptopsReady();
     
     try {
         if (selectedLaptopId === 'all') {
-            // Load all reviews
+            // Load all reviews (single-flight)
             await loadReviewsData();
         } else {
             // Load reviews for specific laptop
@@ -815,28 +934,169 @@ async function loadSelectedLaptopReviews() {
     }
 }
 
+// Ensure laptops are loaded before dependent operations
+async function ensureLaptopsReady() {
+    if (Array.isArray(laptops) && laptops.length > 0) return;
+    try {
+        const data = await apiCall('/laptops');
+        if (Array.isArray(data) && data.length > 0) {
+            laptops = data;
+        }
+    } catch (e) {
+        console.warn('[DEBUG] ensureLaptopsReady failed to load laptops');
+    }
+}
+
 // Fetch and render simple insights for reviews
 async function loadReviewInsights(laptopId) {
     try {
         const target = document.getElementById('reviews-insights');
-        if (!laptopId || !target) return;
-        const data = await apiCall(`/laptops/${laptopId}/reviews/insights`);
-        if (!data) return;
-        let trendsHtml = '';
-        if (data.trends && data.trends.length > 0) {
-            const last = data.trends.slice(-6);
-            trendsHtml = `<div class="small text-muted">Last months: ${last.map(t => `${t.month} (${t.count})`).join(' · ')}</div>`;
+        if (!target) return;
+
+        // Fetch laptops list to compute general (all laptops) insights
+        const laptopsList = await apiCall('/laptops');
+        if (!laptopsList || laptopsList.length === 0) {
+            target.innerHTML = '<span class="text-muted small">No insights yet</span>';
+            return;
         }
-        let aspectsHtml = '';
-        if (data.aspects && data.aspects.length > 0) {
-            aspectsHtml = `<div class="mt-2">` +
-                data.aspects.map(a => `<span class="badge bg-light text-dark me-1 mb-1">${a.name} · ${a.mentions} · ${a.avg_rating}</span>`).join(' ') +
-                `</div>`;
+
+        // Fetch per-laptop insights in parallel
+        const insightPromises = laptopsList.map(l => apiCall(`/laptops/${l.id}/reviews/insights`).then(data => ({ laptop: l, data })).catch(() => ({ laptop: l, data: null })));
+        const insightsByLaptop = await Promise.all(insightPromises);
+
+        // Aggregate general trends and aspects across all laptops
+        const monthToAgg = {}; // { month: { countSum, ratingWeightedSum } }
+        const aspectToAgg = {}; // { aspect: { mentions, ratingWeightedSum } }
+
+        insightsByLaptop.forEach(({ data }) => {
+            if (!data) return;
+            // trends
+            if (Array.isArray(data.trends)) {
+                data.trends.forEach(tp => {
+                    const key = tp.month;
+                    if (!monthToAgg[key]) monthToAgg[key] = { countSum: 0, ratingWeightedSum: 0 };
+                    monthToAgg[key].countSum += tp.count || 0;
+                    monthToAgg[key].ratingWeightedSum += (tp.avg_rating || 0) * (tp.count || 0);
+                });
+            }
+            // aspects
+            if (Array.isArray(data.aspects)) {
+                data.aspects.forEach(a => {
+                    const key = a.name;
+                    if (!aspectToAgg[key]) aspectToAgg[key] = { mentions: 0, ratingWeightedSum: 0 };
+                    aspectToAgg[key].mentions += a.mentions || 0;
+                    aspectToAgg[key].ratingWeightedSum += (a.avg_rating || 0) * (a.mentions || 0);
+                });
+            }
+        });
+
+        const generalTrends = Object.keys(monthToAgg)
+            .sort()
+            .map(m => {
+                const agg = monthToAgg[m];
+                const avg = agg.countSum > 0 ? (agg.ratingWeightedSum / agg.countSum) : 0;
+                return { month: m, count: agg.countSum, avg_rating: Math.round(avg * 100) / 100 };
+            });
+
+        const generalAspects = Object.keys(aspectToAgg)
+            .map(name => {
+                const agg = aspectToAgg[name];
+                const avg = agg.mentions > 0 ? (agg.ratingWeightedSum / agg.mentions) : 0;
+                return { name, mentions: agg.mentions, avg_rating: Math.round(avg * 100) / 100 };
+            })
+            .sort((a, b) => b.mentions - a.mentions)
+            .slice(0, 8);
+
+        // Pretty labels and micro-descriptions
+        const aspectLabels = {
+            battery: 'Battery life',
+            display: 'Display & brightness',
+            keyboard: 'Keyboard & typing',
+            performance: 'Performance & speed',
+            build: 'Build quality',
+            speakers: 'Speakers & audio',
+            thermals: 'Thermals & fan noise',
+            price: 'Price & value',
+            portability: 'Portability & weight'
+        };
+        const aspectHints = {
+            battery: 'mentions battery life and charging',
+            display: 'mentions screen, color and brightness',
+            keyboard: 'mentions keys and typing feel',
+            performance: 'mentions speed and snappiness',
+            build: 'mentions chassis and hinge quality',
+            speakers: 'mentions audio quality',
+            thermals: 'mentions heat and fan noise',
+            price: 'mentions affordability and value',
+            portability: 'mentions weight and carry-ability'
+        };
+
+        function fmtMonth(m) {
+            // m is YYYY-MM
+            try {
+                const [y, mo] = m.split('-');
+                const d = new Date(parseInt(y), parseInt(mo) - 1, 1);
+                return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+            } catch { return m; }
         }
+
+        function trendsSummary(trends) {
+            if (!trends || trends.length === 0) return 'No trend data available.';
+            const last = trends.slice(-6);
+            const total = last.reduce((s, t) => s + (t.count || 0), 0);
+            const weighted = last.reduce((s, t) => s + (t.avg_rating || 0) * (t.count || 0), 0);
+            const avg = total > 0 ? Math.round((weighted / total) * 100) / 100 : 0;
+            const latest = last[last.length - 1];
+            const latestText = latest ? `${fmtMonth(latest.month)}: ${latest.count} reviews, avg ${latest.avg_rating}/5` : 'n/a';
+            return `Recent trend (last ${last.length} months): ${total} reviews total, avg ${avg}/5. Latest — ${latestText}.`;
+        }
+
+        function aspectsList(aspects) {
+            if (!aspects || aspects.length === 0) return '<div class="text-muted small">No themes detected.</div>';
+            const items = aspects.map(a => {
+                const label = aspectLabels[a.name] || a.name;
+                const hint = aspectHints[a.name] || 'common mentions';
+                return `<li>${label}: <strong>${a.mentions}</strong> mentions, avg <strong>${a.avg_rating}/5</strong> — ${hint}.</li>`;
+            }).join('');
+            return `<ul class="mb-0">${items}</ul>`;
+        }
+
+        const sourcesHtml = `<div class="small text-muted mt-1"><i class="fas fa-link"></i> Sources: live_reviews.json</div>`;
+
+        // Build General (All Laptops) section
+        const generalSectionHtml = `
+            <div class="mb-2">
+                <div class="fw-semibold">General (All Laptops)</div>
+                <div class="small text-muted">${trendsSummary(generalTrends)}</div>
+                <div class="mt-2">${aspectsList(generalAspects)}</div>
+                ${sourcesHtml}
+            </div>
+        `;
+
+        // Optionally add Specific (Selected Laptop) section if laptopId provided
+        let specificSectionHtml = '';
+        if (laptopId) {
+            const entry = insightsByLaptop.find(x => x.laptop && x.laptop.id === laptopId);
+            const data = entry && entry.data ? entry.data : null;
+            if (data) {
+                const specTrends = Array.isArray(data.trends) ? data.trends : [];
+                const specAspects = Array.isArray(data.aspects) ? data.aspects.slice(0, 6) : [];
+                specificSectionHtml = `
+                    <hr class="my-2" />
+                    <div>
+                        <div class="fw-semibold">This Laptop — ${entry?.laptop?.brand || ''} ${entry?.laptop?.model_name || ''}</div>
+                        <div class="small text-muted">${trendsSummary(specTrends)}</div>
+                        <div class="mt-2">${aspectsList(specAspects)}</div>
+                        ${sourcesHtml}
+                    </div>
+                `;
+            }
+        }
+
         target.innerHTML = `
             <div>
-                ${trendsHtml}
-                ${aspectsHtml || '<span class="text-muted small">No insights yet</span>'}
+                ${generalSectionHtml}
+                ${specificSectionHtml}
             </div>
         `;
     } catch (e) {
@@ -942,46 +1202,61 @@ async function loadSingleLaptopReviews(laptopId) {
 }
 
 async function loadReviewsData() {
+    if (isLoadingAllReviews) {
+        console.log('[DEBUG] loadReviewsData ignored: already in-flight');
+        return;
+    }
+    isLoadingAllReviews = true;
+
     console.log('[DEBUG] Loading reviews data from API...');
     
     try {
-        // Load all laptops to get their reviews
-        const laptopsData = await apiCall('/laptops');
+        // Load all laptops to get their reviews (use cache if empty)
+        let laptopsData = await apiCall('/laptops');
         if (!laptopsData || laptopsData.length === 0) {
-            console.log('[DEBUG] No laptops found for reviews');
-            return;
+            console.warn('[DEBUG] /laptops returned empty; falling back to global laptops cache');
+            if (Array.isArray(laptops) && laptops.length > 0) {
+                laptopsData = laptops;
+            } else {
+                console.log('[DEBUG] No laptops available in cache either');
+                const reviewsContainer = document.getElementById('recent-reviews');
+                reviewsContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No laptops available yet. Try again shortly.
+                    </div>
+                `;
+                return;
+            }
         }
         
-        // Collect all reviews from all laptops
-        let allReviews = [];
+        // Collect all reviews from all laptops (fetch in parallel)
         let ratingCounts = [0, 0, 0, 0, 0]; // 1-star, 2-star, 3-star, 4-star, 5-star
-        
-        for (const laptop of laptopsData) {
+
+        const perLaptopPromises = laptopsData.map(async (laptop) => {
             try {
-                console.log(`[DEBUG] Loading reviews for laptop ${laptop.id}: ${laptop.brand} ${laptop.model_name}`);
                 const reviews = await apiCall(`/laptops/${laptop.id}/reviews`);
-                console.log(`[DEBUG] Received ${reviews ? reviews.length : 0} reviews for laptop ${laptop.id}`);
-                
                 if (reviews && reviews.length > 0) {
-                    // Add laptop info to each review
-                    const reviewsWithLaptop = reviews.map(review => ({
-                        ...review,
-                        laptop_brand: laptop.brand,
-                        laptop_model: laptop.model_name
-                    }));
-                    allReviews = allReviews.concat(reviewsWithLaptop);
-                    
-                    // Count ratings for chart
+                    // Count ratings
                     reviews.forEach(review => {
                         if (review.rating && review.rating >= 1 && review.rating <= 5) {
                             ratingCounts[Math.floor(review.rating) - 1]++;
                         }
                     });
+                    // Add laptop info to each review
+                    return reviews.map(review => ({
+                        ...review,
+                        laptop_brand: laptop.brand,
+                        laptop_model: laptop.model_name
+                    }));
                 }
             } catch (error) {
                 console.error(`[DEBUG] Error loading reviews for laptop ${laptop.id}:`, error);
             }
-        }
+            return [];
+        });
+
+        const results = await Promise.all(perLaptopPromises);
+        const allReviews = results.flat();
         
         console.log('[DEBUG] Loaded', allReviews.length, 'total reviews');
         
@@ -991,7 +1266,7 @@ async function loadReviewsData() {
         if (chartTitle) chartTitle.textContent = 'Rating Distribution - All Laptops';
         if (reviewsTitle) reviewsTitle.textContent = 'All Reviews - All Laptops';
         
-        // Sort by date (newest first) and take recent ones
+        // Sort by date (newest first)
         allReviews.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
         const reviewsToShow = allReviews; // Show all reviews by default
         
@@ -1004,13 +1279,6 @@ async function loadReviewsData() {
                     <i class="fas fa-info-circle"></i> No reviews available yet.
                 </div>
             `;
-            
-            // Show sample chart data when no reviews exist
-            if (ratingsChart) {
-                console.log('[DEBUG] No reviews found, showing sample chart data');
-                ratingsChart.data.datasets[0].data = [2, 1, 1, 0, 0]; // Sample: 2 five-star, 1 four-star, 1 three-star
-                ratingsChart.update();
-            }
         } else {
             reviewsContainer.innerHTML = reviewsToShow.map(review => {
                 const rating = review.rating || 0;
@@ -1048,7 +1316,6 @@ async function loadReviewsData() {
         
         // Update ratings chart with real data
         if (ratingsChart) {
-            // Reverse array because chart expects [5-star, 4-star, 3-star, 2-star, 1-star]
             const chartData = ratingCounts.reverse();
             console.log('[DEBUG] Updating chart with rating counts:', ratingCounts, 'reversed to:', chartData);
             ratingsChart.data.datasets[0].data = chartData;
@@ -1066,6 +1333,8 @@ async function loadReviewsData() {
                 <i class="fas fa-exclamation-triangle"></i> Error loading reviews: ${error.message}
             </div>
         `;
+    } finally {
+        isLoadingAllReviews = false;
     }
 }
 

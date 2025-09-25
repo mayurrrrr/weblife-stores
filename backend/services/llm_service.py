@@ -190,7 +190,22 @@ Provide a clear rationale explaining why these laptops are good matches for the 
         else:
             rationale = f"Here are the laptops that match your criteria."
         
-        sources = ["Live pricing data", "Product specifications", "User reviews"]
+        # Return filename-based sources when available
+        sources: List[str] = []
+        try:
+            specs_path = Path("../data/specs/specs.json").resolve()
+            offers_path = Path("../data/live/live_offers.json").resolve()
+            reviews_path = Path("../data/live/live_reviews.json").resolve()
+            if specs_path.exists():
+                sources.append(specs_path.name)
+            if offers_path.exists():
+                sources.append(offers_path.name)
+            if reviews_path.exists():
+                sources.append(reviews_path.name)
+        except Exception:
+            pass
+        if not sources:
+            sources = ["specs.json", "live_offers.json", "live_reviews.json"]
         
         return laptop_ids, rationale, sources
     
@@ -227,11 +242,31 @@ Provide a clear rationale explaining why these laptops are good matches for the 
         if "available" in user_message.lower() or "in stock" in user_message.lower():
             sources.append("Real-time inventory data")
         
+        # Append filenames if present on disk
+        try:
+            specs_path = Path("../data/specs/specs.json").resolve()
+            offers_path = Path("../data/live/live_offers.json").resolve()
+            reviews_path = Path("../data/live/live_reviews.json").resolve()
+            if specs_path.exists():
+                sources.append(specs_path.name)
+            if offers_path.exists():
+                sources.append(offers_path.name)
+            if reviews_path.exists():
+                sources.append(reviews_path.name)
+        except Exception:
+            pass
+        
         # Fallback if no specific sources identified
         if not sources:
-            sources = ["Product database", "Live market data"]
+            sources = ["specs.json", "live_offers.json", "live_reviews.json"]
         
-        return sources[:4]  # Limit to 4 sources max
+        # Limit
+        # Deduplicate while preserving order
+        deduped = []
+        for s in sources:
+            if s not in deduped:
+                deduped.append(s)
+        return deduped[:6]
 
     def fallback_response(self, user_message: str) -> str:
         """Provide a fallback response when LLM is not available."""
@@ -277,6 +312,8 @@ Provide a clear rationale explaining why these laptops are good matches for the 
             offers = json.loads(offers_path.read_text(encoding="utf-8")) if offers_path.exists() else {}
         except Exception:
             offers = {}
+        # Load live reviews for filename source
+        reviews_path = Path("../data/live/live_reviews.json").resolve()
         # Include per-laptop citations
         laptops = db.query(Laptop).all()
         for laptop in laptops:
@@ -304,8 +341,20 @@ Provide a clear rationale explaining why these laptops are good matches for the 
             # Stop if we have enough
             if len(citations) >= 6:
                 break
-        # If nothing found, fallback to generic
+        # Always include data file names if available
+        file_names: List[str] = []
+        if specs_path.exists():
+            file_names.append(specs_path.name)
+        if offers_path.exists():
+            file_names.append(offers_path.name)
+        if reviews_path.exists():
+            file_names.append(reviews_path.name)
+        # Append unique filenames at the end
+        for fn in file_names:
+            if fn not in citations:
+                citations.append(fn)
+        # If nothing found, fallback to filenames
         if not citations:
-            citations = ["Product database (SQLite)", "Specs artifacts (data/specs/specs.json)"]
+            citations = file_names or ["specs.json", "live_offers.json", "live_reviews.json"]
         # Trim
         return citations[:6]

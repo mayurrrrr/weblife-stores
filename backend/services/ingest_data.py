@@ -14,6 +14,15 @@ class DataIngestion:
     def __init__(self):
         self.db = SessionLocal()
         self.laptop_mapping = {}  # Maps model_key to laptop_id
+        # Resolve important base directories relative to this file to avoid CWD issues
+        self._here = Path(__file__).resolve()
+        # backend/services -> backend
+        self._backend_dir = self._here.parent.parent
+        # project root (one up from backend)
+        self._project_root = self._backend_dir.parent
+        self._data_dir = self._project_root / "data"
+        self._live_dir = self._data_dir / "live"
+        self._specs_dir = self._data_dir / "specs"
     
     def __del__(self):
         if hasattr(self, 'db'):
@@ -148,14 +157,36 @@ class DataIngestion:
         print(f"Ingested {total_qna} Q&A items.")
     
     def load_json_file(self, filename: str) -> dict:
-        """Load data from a JSON file."""
-        file_path = Path(filename)
-        if file_path.exists():
-            with open(file_path, 'r') as f:
-                return json.load(f)
+        """Load data from a JSON file with robust path resolution."""
+        # Candidates to try
+        candidates = []
+        p = Path(filename)
+        if p.is_absolute():
+            candidates.append(p)
         else:
-            print(f"File not found: {filename}")
-            return {}
+            # As passed (relative to CWD)
+            candidates.append(p)
+            # Relative to this file (services)
+            candidates.append(self._here.parent / filename)
+            # Relative to backend dir
+            candidates.append(self._backend_dir / filename)
+            # Relative to project root
+            candidates.append(self._project_root / filename)
+            # If path is like ../data/live/x.json, also try explicit live dir
+            try:
+                if p.name:
+                    candidates.append(self._live_dir / p.name)
+            except Exception:
+                pass
+        for cand in candidates:
+            try:
+                if cand.exists():
+                    with open(cand, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+            except Exception as e:
+                print(f"Warning: failed reading {cand}: {e}")
+        print(f"File not found via any candidate for: {filename}")
+        return {}
     
     async def run_full_ingestion(self, clear_existing: bool = True):
         """Run the complete data ingestion process."""
@@ -174,7 +205,7 @@ class DataIngestion:
         
         # Persist specs JSONs under data/specs for artifacts
         try:
-            specs_dir = Path("../data/specs")
+            specs_dir = self._specs_dir
             specs_dir.mkdir(parents=True, exist_ok=True)
             # Combined file
             (specs_dir / "specs.json").write_text(json.dumps(specs_data, indent=2), encoding="utf-8")
@@ -183,7 +214,7 @@ class DataIngestion:
                 (specs_dir / f"{model_key}.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
             # Relocate any stray root-level spec files
             try:
-                project_root = Path("..").resolve()
+                project_root = self._project_root
                 for stray in project_root.glob("*_specs.json"):
                     target = specs_dir / stray.name
                     try:
@@ -192,7 +223,7 @@ class DataIngestion:
                     except Exception as move_err:
                         print(f"Warning: could not move {stray}: {move_err}")
             except Exception as scan_err:
-                print(f"Warning: failed scanning for stray specs: {scan_err}")
+                print(f"Warning: failed scanning for stray specs: {self}")
             print(f"Saved specs artifacts to {specs_dir}")
         except Exception as e:
             print(f"Warning: failed to save specs artifacts: {e}")
@@ -209,7 +240,7 @@ class DataIngestion:
             }
             # Also save placeholder specs to artifacts for consistency
             try:
-                specs_dir = Path("../data/specs")
+                specs_dir = self._specs_dir
                 specs_dir.mkdir(parents=True, exist_ok=True)
                 (specs_dir / "specs.json").write_text(json.dumps(placeholder_specs, indent=2), encoding="utf-8")
                 for model_key, spec in placeholder_specs.items():
