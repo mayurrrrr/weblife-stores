@@ -200,15 +200,18 @@ class PDFParser:
         """Parse all PDFs defined in PDF_MAPPINGS."""
         results = {}
         
+        specs_dir = Path("../data/specs")
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        
         for model_key, pdf_filename in PDF_MAPPINGS.items():
             pdf_path = Path(pdf_filename)
             if pdf_path.exists():
                 result = self.parse_pdf(str(pdf_path), model_key)
                 if result:
                     results[model_key] = result
-                    # Save individual JSON file
-                    output_file = f"{model_key}_specs.json"
-                    with open(output_file, 'w') as f:
+                    # Save individual JSON file under data/specs
+                    output_file = specs_dir / f"{model_key}.json"
+                    with open(output_file, 'w', encoding='utf-8') as f:
                         json.dump(result, f, indent=2)
                     print(f"Saved specifications to {output_file}")
             else:
@@ -220,13 +223,13 @@ def main():
     """Main function to parse all PDFs."""
     parser = PDFParser()
     results = parser.parse_all_pdfs()
-    
-    # Save combined results
-    with open("all_laptop_specs.json", 'w') as f:
+    # Save combined results under data/specs
+    specs_dir = Path("../data/specs")
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    with open(specs_dir / "specs.json", 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2)
-    
     print(f"Parsed {len(results)} PDF files successfully!")
-    print("Individual spec files and combined 'all_laptop_specs.json' have been created.")
+    print(f"Combined specs saved to {specs_dir / 'specs.json'}")
 
 if __name__ == "__main__":
     main()

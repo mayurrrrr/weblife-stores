@@ -126,7 +126,16 @@
 
                 <!-- Reviews Tab -->
                 <div id="reviews-tab" class="tab-content">
-                    <h3><i class="fas fa-star"></i> Reviews Intelligence</h3>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="fas fa-star"></i> Reviews Intelligence</h3>
+                        <div class="col-md-4">
+                            <label for="laptopSelect" class="form-label">Select Laptop:</label>
+                            <select class="form-select" id="laptopSelect" onchange="loadSelectedLaptopReviews()">
+                                <option value="all">All Laptops</option>
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="card">
@@ -141,6 +150,12 @@
                                 <div class="card-header">Recent Reviews</div>
                                 <div class="card-body" id="recent-reviews">
                                     <!-- Reviews will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="card mt-3">
+                                <div class="card-header">Top Themes & Trends</div>
+                                <div class="card-body" id="reviews-insights">
+                                    <!-- Insights will be loaded here -->
                                 </div>
                             </div>
                         </div>

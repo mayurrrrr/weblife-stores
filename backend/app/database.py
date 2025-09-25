@@ -39,6 +39,7 @@ class Offer(Base):
     shipping_eta = Column(String(50))
     promotions = Column(Text)  # JSON string of promotions
     timestamp = Column(DateTime, default=datetime.utcnow)
+    seller = Column(String(100))
     
     # Relationships
     laptop = relationship("Laptop", back_populates="offers")

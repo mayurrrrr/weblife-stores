@@ -39,6 +39,7 @@ class OfferResponse(BaseModel):
     shipping_eta: Optional[str] = None
     promotions: List[str] = []
     timestamp: datetime
+    seller: Optional[str] = None
 
 class ReviewResponse(BaseModel):
     id: int
@@ -90,3 +91,19 @@ class LaptopFilter(BaseModel):
     max_price: Optional[float] = None
     available_only: bool = True
     search_term: Optional[str] = None
+
+class AspectInsight(BaseModel):
+    name: str
+    mentions: int
+    avg_rating: float
+
+class TrendPoint(BaseModel):
+    month: str  # YYYY-MM
+    count: int
+    avg_rating: float
+
+class ReviewInsightsResponse(BaseModel):
+    laptop_id: int
+    aspects: List[AspectInsight]
+    trends: List[TrendPoint]
+    summary: Optional[str] = None

@@ -76,6 +76,7 @@ function loadTabData(tabId) {
     switch(tabId) {
         case 'trends':
             console.log('[DEBUG] Loading trends data');
+            ensureTrendsDropdown();
             loadPriceTrends();
             break;
         case 'reviews':
@@ -85,23 +86,63 @@ function loadTabData(tabId) {
                 console.log('[DEBUG] Ratings chart not found, reinitializing...');
                 initializeRatingsChart();
             }
-            // Small delay to ensure tab is visible before loading data
+            // Populate laptop dropdown
+            populateLaptopDropdown();
+            // Default to 'all' and load via unified path
             setTimeout(() => {
-                console.log('[DEBUG] Calling loadReviewsData after timeout');
-                loadReviewsData();
-                // Trigger chart resize to ensure proper rendering
+                const sel = document.getElementById('laptopSelect');
+                if (sel) sel.value = 'all';
+                console.log('[DEBUG] Calling loadSelectedLaptopReviews after setup');
+                loadSelectedLaptopReviews();
                 if (ratingsChart) {
                     ratingsChart.resize();
                 }
-            }, 100);
+            }, 50);
             break;
         case 'compare':
             console.log('[DEBUG] Loading comparison data');
+            ensureCompareSelector();
             updateComparisonView();
             break;
         default:
             console.log('[DEBUG] Unknown tab:', tabId);
     }
+}
+
+// Inject a "Show all reviews" toggle next to the laptop dropdown if missing
+function ensureShowAllToggle() {
+    try {
+        const reviewsHeader = document.querySelector('#reviews-tab .d-flex.justify-content-between');
+        // Fallback to the known header container
+        const headerContainer = reviewsHeader || document.querySelector('#reviews-tab .d-flex.justify-content-between.align-items-center');
+        if (!headerContainer) return;
+        if (document.getElementById('showAllReviews')) return;
+        const toggleWrapper = document.createElement('div');
+        toggleWrapper.className = 'ms-3';
+        toggleWrapper.innerHTML = `
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showAllReviews">
+                <label class="form-check-label" for="showAllReviews">Show all reviews</label>
+            </div>
+        `;
+        headerContainer.appendChild(toggleWrapper);
+        const checkbox = toggleWrapper.querySelector('#showAllReviews');
+        checkbox.addEventListener('change', () => {
+            // Re-load based on current selection
+            if (typeof loadSelectedLaptopReviews === 'function') {
+                loadSelectedLaptopReviews();
+            } else {
+                loadReviewsData();
+            }
+        });
+    } catch (e) {
+        console.error('[DEBUG] ensureShowAllToggle error:', e);
+    }
+}
+
+function isShowAllEnabled() {
+    const cb = document.getElementById('showAllReviews');
+    return !!(cb && cb.checked);
 }
 
 function setupEventListeners() {
@@ -198,7 +239,6 @@ function displayLaptops(laptopsData, viewMode = 'grid') {
                             <th>RAM</th>
                             <th>Storage</th>
                             <th>Rating</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -235,11 +275,6 @@ function createLaptopCard(laptop) {
                         <small class="text-muted">(4.2)</small>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <button class="btn btn-primary btn-sm w-100" onclick="event.stopPropagation(); addToCompare(${laptop.id})">
-                        <i class="fas fa-balance-scale"></i> Compare
-                    </button>
-                </div>
             </div>
         </div>
     `;
@@ -264,11 +299,6 @@ function createLaptopRow(laptop) {
             <td>
                 <span class="rating-stars">★★★★☆</span>
                 <small class="text-muted">(4.2)</small>
-            </td>
-            <td>
-                <button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); addToCompare(${laptop.id})">
-                    <i class="fas fa-balance-scale"></i>
-                </button>
             </td>
         </tr>
     `;
@@ -344,14 +374,13 @@ function displayLaptopModal(laptop) {
         </div>
     `;
     
-    // Set up the "Add to Compare" button
+    // Hide modal compare button to enforce Compare tab usage
     const addToCompareBtn = document.getElementById('addToCompareBtn');
-    addToCompareBtn.onclick = () => {
-        addToCompare(laptop.id);
-        bootstrap.Modal.getInstance(modal).hide();
-    };
+    if (addToCompareBtn) {
+        addToCompareBtn.style.display = 'none';
+        addToCompareBtn.onclick = null;
+    }
     
-    // Show the modal
     new bootstrap.Modal(modal).show();
 }
 
@@ -616,10 +645,10 @@ function initializePriceChart() {
     priceChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            labels: [],
             datasets: [{
-                label: 'Average Price',
-                data: [950, 920, 900, 880, 860, 850],
+                label: 'Price',
+                data: [],
                 borderColor: '#0d6efd',
                 backgroundColor: 'rgba(13, 110, 253, 0.1)',
                 tension: 0.4
@@ -631,16 +660,15 @@ function initializePriceChart() {
                 title: {
                     display: true,
                     text: 'Laptop Price Trends'
-                }
+                },
+                legend: { display: false }
             },
             scales: {
                 y: {
                     beginAtZero: false,
-                    title: {
-                        display: true,
-                        text: 'Price ($)'
-                    }
-                }
+                    title: { display: true, text: 'Price ($)' }
+                },
+                x: { ticks: { maxRotation: 0, autoSkip: true } }
             }
         }
     });
@@ -697,12 +725,219 @@ function initializeRatingsChart() {
     console.log('[DEBUG] Ratings chart initialized successfully');
 }
 
-async function loadPriceTrends() {
-    // In a real implementation, this would fetch actual price trend data
-    // For now, we'll update with sample data
-    if (priceChart) {
-        priceChart.data.datasets[0].data = [950, 920, 900, 880, 860, 850];
-        priceChart.update();
+async function loadPriceTrends(laptopId) {
+    try {
+        ensureTrendsDropdown();
+        let selectedId = laptopId;
+        const sellerEl = document.getElementById('trendsSeller');
+        if (!selectedId) {
+            const select = document.querySelector('#trendsSelect');
+            if (select && select.value) {
+                selectedId = parseInt(select.value);
+            } else if (laptops && laptops.length > 0) {
+                selectedId = laptops[0].id;
+                if (select) select.value = String(selectedId);
+            } else {
+                return;
+            }
+        }
+        const offers = await apiCall(`/laptops/${selectedId}/offers`);
+        const labels = [];
+        const data = [];
+        let latestSeller = '';
+        if (offers && offers.length > 0) {
+            // sort ascending by timestamp
+            offers.sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+            offers.forEach(o => {
+                labels.push(new Date(o.timestamp).toLocaleDateString());
+                data.push(o.price);
+            });
+            const latest = offers[offers.length - 1];
+            latestSeller = latest && latest.seller ? latest.seller : '';
+        }
+        if (priceChart) {
+            priceChart.data.labels = labels;
+            priceChart.data.datasets[0].data = data;
+            priceChart.update();
+        }
+        if (sellerEl) {
+            sellerEl.textContent = latestSeller ? `Seller: ${latestSeller}` : '';
+        }
+    } catch (error) {
+        console.error('[DEBUG] Error loading price trends:', error);
+        if (priceChart) {
+            priceChart.data.labels = [];
+            priceChart.data.datasets[0].data = [];
+            priceChart.update();
+        }
+        const sellerEl = document.getElementById('trendsSeller');
+        if (sellerEl) sellerEl.textContent = '';
+    }
+}
+
+// Populate laptop dropdown for reviews tab
+function populateLaptopDropdown() {
+    const dropdown = document.getElementById('laptopSelect');
+    if (!dropdown) return;
+    
+    // Clear existing options except "All Laptops"
+    dropdown.innerHTML = '<option value="all">All Laptops</option>';
+    
+    // Add laptop options
+    if (laptops && laptops.length > 0) {
+        laptops.forEach(laptop => {
+            const option = document.createElement('option');
+            option.value = laptop.id;
+            option.textContent = `${laptop.brand} ${laptop.model_name}`;
+            dropdown.appendChild(option);
+        });
+    }
+}
+
+// Load reviews for selected laptop
+async function loadSelectedLaptopReviews() {
+    const dropdown = document.getElementById('laptopSelect');
+    const selectedLaptopId = dropdown ? dropdown.value : 'all';
+    
+    console.log('[DEBUG] Loading reviews for selected laptop:', selectedLaptopId);
+    
+    try {
+        if (selectedLaptopId === 'all') {
+            // Load all reviews
+            await loadReviewsData();
+        } else {
+            // Load reviews for specific laptop
+            await loadSingleLaptopReviews(parseInt(selectedLaptopId));
+        }
+    } catch (error) {
+        console.error('[DEBUG] Error loading selected laptop reviews:', error);
+        showError('Failed to load reviews for selected laptop');
+    }
+}
+
+// Fetch and render simple insights for reviews
+async function loadReviewInsights(laptopId) {
+    try {
+        const target = document.getElementById('reviews-insights');
+        if (!laptopId || !target) return;
+        const data = await apiCall(`/laptops/${laptopId}/reviews/insights`);
+        if (!data) return;
+        let trendsHtml = '';
+        if (data.trends && data.trends.length > 0) {
+            const last = data.trends.slice(-6);
+            trendsHtml = `<div class="small text-muted">Last months: ${last.map(t => `${t.month} (${t.count})`).join(' · ')}</div>`;
+        }
+        let aspectsHtml = '';
+        if (data.aspects && data.aspects.length > 0) {
+            aspectsHtml = `<div class="mt-2">` +
+                data.aspects.map(a => `<span class="badge bg-light text-dark me-1 mb-1">${a.name} · ${a.mentions} · ${a.avg_rating}</span>`).join(' ') +
+                `</div>`;
+        }
+        target.innerHTML = `
+            <div>
+                ${trendsHtml}
+                ${aspectsHtml || '<span class="text-muted small">No insights yet</span>'}
+            </div>
+        `;
+    } catch (e) {
+        console.error('[DEBUG] insights error', e);
+    }
+}
+
+// Hook into single laptop loading
+async function loadSingleLaptopReviews(laptopId) {
+    console.log('[DEBUG] Loading reviews for laptop ID:', laptopId);
+    
+    try {
+        const laptop = laptops.find(l => l.id === laptopId);
+        if (!laptop) {
+            console.error('[DEBUG] Laptop not found:', laptopId);
+            return;
+        }
+        // Load insights (does not alter reviews list)
+        loadReviewInsights(laptopId);
+        
+        // Load reviews for this specific laptop
+        const reviews = await apiCall(`/laptops/${laptopId}/reviews`);
+        console.log(`[DEBUG] Received ${reviews ? reviews.length : 0} reviews for laptop ${laptopId}`);
+        
+        let ratingCounts = [0, 0, 0, 0, 0];
+        let allReviews = [];
+        
+        if (reviews && reviews.length > 0) {
+            allReviews = reviews.map(review => ({
+                ...review,
+                laptop_brand: laptop.brand,
+                laptop_model: laptop.model_name
+            }));
+            reviews.forEach(review => {
+                if (review.rating && review.rating >= 1 && review.rating <= 5) {
+                    ratingCounts[Math.floor(review.rating) - 1]++;
+                }
+            });
+        }
+        
+        const chartTitle = document.getElementById('chart-title');
+        const reviewsTitle = document.getElementById('reviews-title');
+        if (chartTitle) chartTitle.textContent = `Rating Distribution - ${laptop.brand} ${laptop.model_name}`;
+        if (reviewsTitle) reviewsTitle.textContent = `All Reviews - ${laptop.brand} ${laptop.model_name}`;
+        
+        allReviews.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
+        const reviewsToShow = allReviews; // show all for selected laptop
+        
+        const reviewsContainer = document.getElementById('recent-reviews');
+        
+        if (reviewsToShow.length === 0) {
+            reviewsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No reviews available for ${laptop.brand} ${laptop.model_name}.
+                </div>
+            `;
+        } else {
+            reviewsContainer.innerHTML = reviewsToShow.map(review => {
+                const rating = review.rating || 0;
+                const author = review.author || 'Anonymous';
+                const date = review.timestamp || review.date;
+                const text = review.review_text || review.body || 'No review text';
+                
+                let formattedDate = 'Unknown date';
+                if (date) {
+                    try {
+                        formattedDate = new Date(date).toLocaleDateString();
+                    } catch (e) {
+                        formattedDate = date.toString().substring(0, 10);
+                    }
+                }
+                
+                return `
+                    <div class="review-item">
+                        <div class="review-header">
+                            <div>
+                                <span class="review-rating">${'★'.repeat(Math.floor(rating))}${'☆'.repeat(5-Math.floor(rating))}</span>
+                                <span class="review-author">${author}</span>
+                            </div>
+                            <span class="review-date">${formattedDate}</span>
+                        </div>
+                        <div class="review-text">${text}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        if (ratingsChart) {
+            const chartData = ratingCounts.reverse();
+            ratingsChart.data.datasets[0].data = chartData;
+            ratingsChart.update();
+        }
+        
+    } catch (error) {
+        console.error('[DEBUG] Error loading single laptop reviews:', error);
+        const reviewsContainer = document.getElementById('recent-reviews');
+        reviewsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error loading reviews: ${error.message}
+            </div>
+        `;
     }
 }
 
@@ -750,14 +985,20 @@ async function loadReviewsData() {
         
         console.log('[DEBUG] Loaded', allReviews.length, 'total reviews');
         
+        // Update chart title for "All Laptops"
+        const chartTitle = document.getElementById('chart-title');
+        const reviewsTitle = document.getElementById('reviews-title');
+        if (chartTitle) chartTitle.textContent = 'Rating Distribution - All Laptops';
+        if (reviewsTitle) reviewsTitle.textContent = 'All Reviews - All Laptops';
+        
         // Sort by date (newest first) and take recent ones
         allReviews.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
-        const recentReviews = allReviews.slice(0, 10); // Show last 10 reviews
+        const reviewsToShow = allReviews; // Show all reviews by default
         
         // Display reviews
         const reviewsContainer = document.getElementById('recent-reviews');
         
-        if (recentReviews.length === 0) {
+        if (reviewsToShow.length === 0) {
             reviewsContainer.innerHTML = `
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i> No reviews available yet.
@@ -771,7 +1012,7 @@ async function loadReviewsData() {
                 ratingsChart.update();
             }
         } else {
-            reviewsContainer.innerHTML = recentReviews.map(review => {
+            reviewsContainer.innerHTML = reviewsToShow.map(review => {
                 const rating = review.rating || 0;
                 const author = review.author || 'Anonymous';
                 const date = review.timestamp || review.date;
@@ -828,6 +1069,104 @@ async function loadReviewsData() {
     }
 }
 
+function ensureCompareSelector() {
+    try {
+        const compareTab = document.getElementById('compare-tab');
+        if (!compareTab) return;
+        let header = compareTab.querySelector('.compare-controls');
+        if (!header) {
+            header = document.createElement('div');
+            header.className = 'compare-controls d-flex align-items-center mb-3';
+            header.innerHTML = `
+                <div class="me-2">
+                    <label for="compareSelect" class="form-label mb-0 me-2">Select Laptop to Compare:</label>
+                    <select id="compareSelect" class="form-select d-inline-block" style="width: 320px;"></select>
+                </div>
+                <button id="compareAddBtn" class="btn btn-outline-primary ms-2">
+                    <i class="fas fa-plus"></i> Add to Comparison
+                </button>
+                <button id="compareClearBtn" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            `;
+            compareTab.insertBefore(header, compareTab.firstChild);
+        }
+        // Populate options
+        const select = header.querySelector('#compareSelect');
+        if (select) {
+            select.innerHTML = '';
+            laptops.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = String(l.id);
+                opt.textContent = `${l.brand} ${l.model_name}`;
+                select.appendChild(opt);
+            });
+        }
+        // Wire buttons
+        const addBtn = header.querySelector('#compareAddBtn');
+        if (addBtn && !addBtn._wired) {
+            addBtn._wired = true;
+            addBtn.addEventListener('click', () => {
+                const sel = header.querySelector('#compareSelect');
+                const id = sel ? parseInt(sel.value) : NaN;
+                if (!isNaN(id)) {
+                    addToCompare(id);
+                }
+            });
+        }
+        const clearBtn = header.querySelector('#compareClearBtn');
+        if (clearBtn && !clearBtn._wired) {
+            clearBtn._wired = true;
+            clearBtn.addEventListener('click', () => {
+                selectedLaptops = [];
+                updateComparisonView();
+            });
+        }
+    } catch (e) {
+        console.error('[DEBUG] ensureCompareSelector error:', e);
+    }
+}
+
+function ensureTrendsDropdown() {
+    try {
+        const trendsTab = document.getElementById('trends-tab');
+        if (!trendsTab) return;
+        let header = trendsTab.querySelector('.trends-controls');
+        if (!header) {
+            header = document.createElement('div');
+            header.className = 'trends-controls d-flex align-items-center mb-3';
+            header.innerHTML = `
+                <div class="me-2">
+                    <label for="trendsSelect" class="form-label mb-0 me-2">Select Laptop:</label>
+                    <select id="trendsSelect" class="form-select d-inline-block" style="width: 320px;"></select>
+                </div>
+                <div id="trendsSeller" class="ms-3 text-muted small" style="min-width: 160px;"></div>
+            `;
+            trendsTab.insertBefore(header, trendsTab.firstChild);
+        }
+        // Populate options
+        const select = header.querySelector('#trendsSelect');
+        if (select) {
+            select.innerHTML = '';
+            laptops.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = String(l.id);
+                opt.textContent = `${l.brand} ${l.model_name}`;
+                select.appendChild(opt);
+            });
+            if (!select._wired) {
+                select._wired = true;
+                select.addEventListener('change', () => {
+                    const id = parseInt(select.value);
+                    loadPriceTrends(id);
+                });
+            }
+        }
+    } catch (e) {
+        console.error('[DEBUG] ensureTrendsDropdown error:', e);
+    }
+}
+
 // Utility Functions
 function showLoading(show) {
     const loading = document.getElementById('loading');
@@ -855,3 +1194,4 @@ window.sendMessage = sendMessage;
 window.handleChatKeyPress = handleChatKeyPress;
 window.getRecommendations = getRecommendations;
 window.quickRecommend = quickRecommend;
+window.loadSelectedLaptopReviews = loadSelectedLaptopReviews;

@@ -10,9 +10,9 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 from targets import TARGETS
 
-OUT_OFFERS = Path("live_offers.json")
-OUT_REVIEWS = Path("live_reviews.json")
-OUT_QNA = Path("live_qna.json")
+OUT_OFFERS = Path("../data/live/live_offers.json")
+OUT_REVIEWS = Path("../data/live/live_reviews.json")
+OUT_QNA = Path("../data/live/live_qna.json")
 
 
 def now_iso() -> str:

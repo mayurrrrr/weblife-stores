@@ -90,6 +90,7 @@ class DataIngestion:
                     shipping_eta=shipping_eta_val,
                     promotions=json.dumps(promotions_val),
                     timestamp=ts_val,
+                    seller=offer_data.get("seller")
                 )
                 self.db.add(offer)
                 total_offers += 1
@@ -171,6 +172,31 @@ class DataIngestion:
         pdf_parser = PDFParser()
         specs_data = pdf_parser.parse_all_pdfs()
         
+        # Persist specs JSONs under data/specs for artifacts
+        try:
+            specs_dir = Path("../data/specs")
+            specs_dir.mkdir(parents=True, exist_ok=True)
+            # Combined file
+            (specs_dir / "specs.json").write_text(json.dumps(specs_data, indent=2), encoding="utf-8")
+            # Per-model files
+            for model_key, spec in (specs_data or {}).items():
+                (specs_dir / f"{model_key}.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
+            # Relocate any stray root-level spec files
+            try:
+                project_root = Path("..").resolve()
+                for stray in project_root.glob("*_specs.json"):
+                    target = specs_dir / stray.name
+                    try:
+                        stray.replace(target)
+                        print(f"Moved {stray.name} -> {target}")
+                    except Exception as move_err:
+                        print(f"Warning: could not move {stray}: {move_err}")
+            except Exception as scan_err:
+                print(f"Warning: failed scanning for stray specs: {scan_err}")
+            print(f"Saved specs artifacts to {specs_dir}")
+        except Exception as e:
+            print(f"Warning: failed to save specs artifacts: {e}")
+        
         if specs_data:
             self.ingest_laptop_specs(specs_data)
         else:
@@ -181,6 +207,16 @@ class DataIngestion:
                 "hp_probook_440": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["256GB SSD"]}},
                 "hp_probook_450": {"specifications": {"cpu": ["Intel processor"], "ram": ["8GB"], "storage": ["512GB SSD"]}},
             }
+            # Also save placeholder specs to artifacts for consistency
+            try:
+                specs_dir = Path("../data/specs")
+                specs_dir.mkdir(parents=True, exist_ok=True)
+                (specs_dir / "specs.json").write_text(json.dumps(placeholder_specs, indent=2), encoding="utf-8")
+                for model_key, spec in placeholder_specs.items():
+                    (specs_dir / f"{model_key}.json").write_text(json.dumps(spec, indent=2), encoding="utf-8")
+                print(f"Saved placeholder specs artifacts to {specs_dir}")
+            except Exception as e:
+                print(f"Warning: failed to save placeholder specs artifacts: {e}")
             self.ingest_laptop_specs(placeholder_specs)
         
         # Step 2: Load existing data (offers from scraper, reviews/QnA from dummy data)
@@ -192,9 +228,9 @@ class DataIngestion:
             
             # Ingest data from files
             print("\n=== Step 3: Ingesting data ===")
-            offers_data = self.load_json_file("live_offers.json")
-            reviews_data = self.load_json_file("live_reviews.json")
-            qna_data = self.load_json_file("live_qna.json")
+            offers_data = self.load_json_file("../data/live/live_offers.json")
+            reviews_data = self.load_json_file("../data/live/live_reviews.json")
+            qna_data = self.load_json_file("../data/live/live_qna.json")
             
             if offers_data:
                 print("📊 Ingesting scraped offers data...")
@@ -211,9 +247,9 @@ class DataIngestion:
             print("Attempting to load existing scraped data...")
             self.db.rollback()
             
-            offers_data = self.load_json_file("live_offers.json")
-            reviews_data = self.load_json_file("live_reviews.json")
-            qna_data = self.load_json_file("live_qna.json")
+            offers_data = self.load_json_file("../data/live/live_offers.json")
+            reviews_data = self.load_json_file("../data/live/live_reviews.json")
+            qna_data = self.load_json_file("../data/live/live_qna.json")
             
             if offers_data or reviews_data or qna_data:
                 print("\n=== Step 3: Ingesting existing scraped data ===")

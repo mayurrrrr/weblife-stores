@@ -374,3 +374,21 @@ body {
 .chat-messages::-webkit-scrollbar-thumb:hover {
     background: var(--primary-color);
 }
+
+/* Reviews panel: fixed height with vertical scroll */
+#recent-reviews {
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+/* Optional: better spacing for individual review items if present */
+#recent-reviews .review-item {
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid rgba(0,0,0,0.075);
+	margin-bottom: 0.75rem;
+}
+#recent-reviews .review-item:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+	padding-bottom: 0;
+}

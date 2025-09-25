@@ -328,24 +328,24 @@ class LaptopScraper:
                 await browser.close()
     
     def save_results(self, results: Dict[str, Any]):
-        with open("live_data.json", 'w') as f:
+        with open("../data/live/live_data.json", 'w') as f:
             json.dump(results, f, indent=2)
         offers_data, reviews_data, qna_data = {}, {}, {}
         for model_key, data in results.items():
             offers_data[model_key] = data.get("offers", [])
             reviews_data[model_key] = data.get("reviews", [])
             qna_data[model_key] = data.get("qna", [])
-        with open("live_offers.json", 'w') as f:
+        with open("../data/live/live_offers.json", 'w') as f:
             json.dump(offers_data, f, indent=2)
-        with open("live_reviews.json", 'w') as f:
+        with open("../data/live/live_reviews.json", 'w') as f:
             json.dump(reviews_data, f, indent=2)
-        with open("live_qna.json", 'w') as f:
+        with open("../data/live/live_qna.json", 'w') as f:
             json.dump(qna_data, f, indent=2)
         print("Scraping results saved to:")
-        print("- live_data.json (combined)")
-        print("- live_offers.json")
-        print("- live_reviews.json")
-        print("- live_qna.json")
+        print("- ../data/live/live_data.json (combined)")
+        print("- ../data/live/live_offers.json")
+        print("- ../data/live/live_reviews.json")
+        print("- ../data/live/live_qna.json")
 
 async def main():
     scraper = LaptopScraper()
