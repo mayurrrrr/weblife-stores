@@ -59,15 +59,16 @@ Manually confirm the official PDP (Product Detail Pages) for:
 
 **Inputs**: Provided PDFs  
 **Outputs**:  
-- `lenovo_e14_intel_specs.json`  
-- `lenovo_e14_amd_specs.json`  
-- `hp_probook_450_specs.json`  
-- `hp_probook_440_specs.json`  
+- `data/specs/specs.json` (combined)  
+- `data/specs/lenovo_e14_intel.json`  
+- `data/specs/lenovo_e14_amd.json`  
+- `data/specs/hp_probook_450.json`  
+- `data/specs/hp_probook_440.json`  
 
 **Process**:
 1. Extract text from PDFs.  
 2. Regex/keyword search for fields (CPU, RAM, Storage, Ports, Display, Battery, Connectivity).  
-3. Save structured JSON per model.  
+3. Save structured JSON per model under `data/specs/`.  
 
 ---
 
@@ -75,9 +76,9 @@ Manually confirm the official PDP (Product Detail Pages) for:
 **Tool**: SQLite (for local demo)  
 
 **Tables**:
-- **laptops**: id, brand, model_name, specs_json  
-- **offers**: id, laptop_id, price, currency, is_available, timestamp  
-- **reviews**: id, laptop_id, rating, review_text, timestamp  
+- **laptops**: id, brand, model_name, specs_json, created_at  
+- **offers**: id, laptop_id, price, currency, is_available, shipping_eta, promotions, timestamp, seller  
+- **reviews**: id, laptop_id, rating, review_text, author, timestamp  
 - **qna**: id, laptop_id, question, answer, timestamp  
 
 ---
@@ -86,10 +87,9 @@ Manually confirm the official PDP (Product Detail Pages) for:
 **Script**: `ingest_data.py`  
 
 **Process**:
-1. Run scraper (`scraper.py`) and PDF parser (`pdf_parser.py`).  
-2. Create/update SQLite DB.  
-3. Insert laptops (from specs).  
-4. Insert offers, reviews, and Q&A (from scraper JSON).  
+1. Run PDF parser (`pdf_parser.py`) to produce artifacts under `data/specs/`.  
+2. Run unified scraper (`unified_scraper.py`) to scrape live offers (always); reviews/Q&A are captured when available and preserved otherwise.  
+3. Create/update SQLite DB and ingest: laptops (from specs), offers (from live), reviews and Q&A (from live if present).  
 
 ---
 
@@ -101,9 +101,11 @@ Manually confirm the official PDP (Product Detail Pages) for:
 - `GET /api/v1/laptops/{id}`  
 - `GET /api/v1/laptops/{id}/offers`  
 - `GET /api/v1/laptops/{id}/reviews`  
+- `GET /api/v1/laptops/{id}/reviews/insights`  
 - `GET /api/v1/laptops/{id}/qna`  
 - `POST /api/v1/chat` (natural language Q&A with citations)  
 - `POST /api/v1/recommend` (recommend configs based on budget/specs)  
+- `GET /health`  
 
 ---
 
@@ -129,23 +131,25 @@ Manually confirm the official PDP (Product Detail Pages) for:
 - **Price Trends**: Chart.js line charts of price history.  
 - **Reviews Intelligence**: Rating distribution + top review themes.  
 - **Chat & Recommend**: Pane with chatbot and recommendations.  
+- Served via `frontend/server.py` at `http://localhost:3001`.  
 
 ---
 
 ## Phase 5: Deliverables
 - **Public GitHub Repo** with:  
-  - `scraper.py`  
-  - `pdf_parser.py`  
-  - `ingest_data.py`  
-  - FastAPI app  
-  - Frontend code  
-  - SQLite DB schema + migrations  
-  - Example outputs (`live_offers.json`, `live_reviews.json`, `*_specs.json`)  
+  - `backend/services/unified_scraper.py`  
+  - `backend/services/targets.py`  
+  - `backend/services/pdf_parser.py`  
+  - `backend/services/ingest_data.py`  
+  - FastAPI app (`backend/main.py`)  
+  - Frontend code (`frontend/`)  
+  - SQLite DB schema and creation (`backend/app/database.py`)  
+  - Example outputs (`data/live/live_offers.json`, `data/live/live_reviews.json`, `data/live/live_qna.json`, `data/specs/*.json`)  
 
 - **README.md** with setup/run instructions.  
 - **Schema Diagram** (PNG or Mermaid).  
 - **Screen Recording (3–5 mins)** showing:  
-  1. Scraper running.  
+  1. Unified scraper running.  
   2. API responses.  
   3. UI in action (explore, reviews, chat/recommend).  
 

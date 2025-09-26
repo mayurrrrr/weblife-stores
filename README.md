@@ -57,17 +57,18 @@ A full-stack application that scrapes live data from Lenovo and HP official stor
 
 4. **Set up environment variables**
    ```bash
-   cp env_example.txt .env
-   # Edit .env and add your Google Gemini API key
+   # If you have an env template, copy it; otherwise create .env manually
+   # cp env_example.txt .env
+   # Then edit .env and add your Google Gemini API key
    ```
 
-5. **Run the application**
+5. **Run the application (startup script)**
    ```bash
    python scripts/run_backend.py
    ```
 
 6. **Open your browser**
-   Navigate to `http://localhost:8000`
+   Navigate to `http://localhost:8000` (API) and `http://localhost:3001` (frontend)
 
 ## API Endpoints
 
@@ -81,6 +82,8 @@ A full-stack application that scrapes live data from Lenovo and HP official stor
 ### AI Features
 - `POST /api/v1/chat` - Chat with AI assistant
 - `POST /api/v1/recommend` - Get personalized recommendations
+- `GET /api/v1/laptops/{id}/reviews/insights` - Aggregated review trends and aspects
+- `GET /health` - Service health check
 
 ### Example API Usage
 
@@ -155,9 +158,9 @@ BROWSER_TIMEOUT=30000
 cd backend && python -m services.pdf_parser
 ```
 
-**Scrape live data only:**
+**Scrape live data only (unified scraper):**
 ```bash
-cd backend && python -m services.scraper
+cd backend && python -m services.unified_scraper
 ```
 
 **Run data ingestion only:**
@@ -217,7 +220,8 @@ CREATE TABLE offers (
     is_available BOOLEAN DEFAULT TRUE,
     shipping_eta VARCHAR(50),
     promotions TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    seller VARCHAR(100)
 );
 
 -- Reviews table
@@ -246,56 +250,57 @@ CREATE TABLE qna (
 
 ```
 weblife-stores/
-├── README.md            # This documentation file
-├── requirements.txt     # Python dependencies
-├── env_example.txt      # Environment variables template
-├── backend/             # Backend application
-│   ├── __init__.py
-│   ├── main.py          # FastAPI application entry point
-│   ├── app/             # Core application modules
-│   │   ├── __init__.py
-│   │   ├── config.py    # Configuration settings
-│   │   ├── database.py  # Database models and setup
-│   │   └── api_models.py # Pydantic models for API
-│   └── services/        # Business logic services
-│       ├── __init__.py
-│       ├── llm_service.py    # Google Gemini integration
-│       ├── pdf_parser.py     # PDF specification extraction
-│       ├── scraper.py        # Web scraping with Playwright
-│       └── ingest_data.py    # Data ingestion pipeline
-├── frontend/            # Frontend application
-│   └── static/          # Static web files
-│       ├── index.html   # Main HTML page
-│       ├── style.css    # Custom styles
-│       └── app.js       # Frontend JavaScript
-├── data/                # Data storage
-│   ├── pdfs/           # Laptop specification PDFs
+├── README.md
+├── requirements.txt
+├── backend/
+│   ├── main.py
+│   ├── app/
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── api_models.py
+│   └── services/
+│       ├── llm_service.py
+│       ├── pdf_parser.py
+│       ├── targets.py
+│       ├── unified_scraper.py
+│       └── ingest_data.py
+├── frontend/
+│   ├── server.py
+│   └── static/
+│       ├── index.html
+│       ├── style.css
+│       └── app.js
+├── data/
+│   ├── pdfs/
 │   │   ├── ThinkPad_E14_Gen_5_Intel_Spec.pdf
 │   │   ├── ThinkPad_E14_Gen_5_AMD_Spec.pdf
 │   │   ├── hp-probook-440.pdf
 │   │   └── hp-probook-450.pdf
-│   └── laptop_intelligence.db # SQLite database (created automatically)
-├── scripts/             # Utility scripts
-│   └── run_backend.py   # Application startup script
-└── docs/               # Documentation
-    └── prd.md          # Product Requirements Document
+│   ├── live/
+│   │   ├── live_offers.json
+│   │   ├── live_reviews.json
+│   │   └── live_qna.json
+│   └── laptop_intelligence.db
+├── scripts/
+│   ├── run_backend.py
+│   └── run_frontend.py
+└── docs/
+    ├── api.md
+    ├── prd.md
+    └── db-schema-diagram.png
 ```
 
 ### Adding New Laptops
 
 1. **Add PDF specifications**: Place PDF files in the `data/pdfs/` directory
-2. **Update configuration**: Add entries to `backend/app/config.py`:
+2. **Update targets**: Add entries in `backend/services/targets.py` for `pdp` and `reviews` URLs
    ```python
-   PDF_MAPPINGS = {
-       "new_laptop_model": "../../data/pdfs/new_laptop_spec.pdf"
-   }
-   
-   SCRAPING_URLS = {
-       "new_laptop_model": "https://official-store-url"
+   TARGETS["new_laptop_model"] = {
+       "pdp": "https://official-store-url",
+       "reviews": ["https://official-store-url#reviews"]
    }
    ```
-3. **Update scraper**: Add brand-specific scraping logic in `backend/services/scraper.py`
-4. **Re-run ingestion**: `python scripts/run_backend.py`
+3. **Re-run ingestion**: `python scripts/run_backend.py`
 
 ### Extending the API
 
@@ -318,8 +323,8 @@ playwright install chromium
 ```
 
 **2. PDF files not found**
-- Ensure PDF files are in the root directory
-- Check file names match those in `config.py`
+- Ensure PDF files are in `data/pdfs/`
+- Check file names match those in `data/pdfs/`
 
 **3. Gemini API errors**
 - Verify your API key is correct
@@ -333,9 +338,12 @@ playwright install chromium
 
 **5. Database errors**
 ```bash
-# Reset database
-rm data/laptop_intelligence.db
-cd backend && python -c "from app.database import create_tables; create_tables()"
+# Reset database (Windows PowerShell)
+Remove-Item data/laptop_intelligence.db -ErrorAction Ignore
+python - <<EOF
+from backend.app.database import create_tables
+create_tables()
+EOF
 python scripts/run_backend.py
 ```
 

@@ -23,6 +23,7 @@ API Prefix: `/api/v1`
 
 ## Health/Root
 GET `/` → Basic info and helpful URLs.
+GET `/health` → `{ status: "healthy", timestamp: <iso> }`.
 
 ---
 ## Catalog & Specs
@@ -103,6 +104,15 @@ Response: `ReviewResponse[]`
 - `review_text`: string | null
 - `author`: string | null
 - `timestamp`: datetime (ISO8601)
+
+### Review Insights
+GET `/api/v1/laptops/{laptop_id}/reviews/insights`
+
+Response: `ReviewInsightsResponse`
+- `laptop_id`: number
+- `aspects`: { `name`: string, `mentions`: number, `avg_rating`: number }[]
+- `trends`: { `month`: string, `count`: number, `avg_rating`: number }[]
+- `summary`: string | null
 
 Example:
 ```bash
@@ -194,12 +204,13 @@ Common HTTP statuses:
 
 ---
 ## Data Notes
-- Specs are sourced from PDF parsing artifacts located under `data/specs/`.
-- Offers (including `seller`) are scraped/written into `data/live/live_offers.json` and ingested into the DB.
-- Reviews/Q&A are ingested from `data/live/{live_reviews.json, live_qna.json}` when available.
+- Specs artifacts are written under `data/specs/` (e.g., `specs.json`, per-model JSONs).
+- Offers are scraped to `data/live/live_offers.json` (always written).
+- Reviews/Q&A are written to `data/live/live_reviews.json` and `data/live/live_qna.json` when data is available; existing files are preserved otherwise.
 - The database is SQLite at `data/laptop_intelligence.db`.
 
 ---
 ## Changelog (relevant)
-- Added `seller` to `OfferResponse` and underlying DB model.
-- Price Trends UI consumes `/laptops/{id}/offers` and displays the latest `seller`.
+- Added `seller` to `OfferResponse` and DB model.
+- Added `GET /api/v1/laptops/{id}/reviews/insights` for aggregated review analytics.
+- Added `GET /health` endpoint.
